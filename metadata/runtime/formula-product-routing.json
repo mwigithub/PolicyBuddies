@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "defaultProductKey": null,
+  "mappings": [
+    {
+      "productKey": "wealth-pro-v1",
+      "productNames": [
+        "wealth pro",
+        "wealth pro (ii)"
+      ],
+      "aliases": [
+        "wealth pro ii"
+      ]
+    }
+  ]
+}

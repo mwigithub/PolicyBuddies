@@ -1,0 +1,53 @@
+{
+  "name": "policybuddies-ask-golden-v1",
+  "description": "Baseline golden questions for agentic ask evaluation",
+  "defaultTopK": 3,
+  "cases": [
+    {
+      "id": "waiting-period-policy",
+      "question": "what is waiting period",
+      "expect": {
+        "decision": "deterministic_only",
+        "source": "evidence",
+        "containsAny": ["90 days", "waiting period"]
+      }
+    },
+    {
+      "id": "premium-year-10",
+      "question": "what is my total premium paid at 10th year",
+      "expect": {
+        "decision": "deterministic_only",
+        "source": "evidence",
+        "containsAny": ["36,000", "policy year 10"]
+      }
+    },
+    {
+      "id": "sum-assured-industry",
+      "question": "what is sum assured in insurance",
+      "expect": {
+        "decision": "industry_only",
+        "source": "industry",
+        "containsAny": ["sum assured", "guaranteed base amount", "insurance"]
+      }
+    },
+    {
+      "id": "sum-assured-policy-missing",
+      "question": "what is sum assured for this policy",
+      "expect": {
+        "decision": "no_answer",
+        "source": "none",
+        "containsAny": ["information not found", "unable"]
+      }
+    },
+    {
+      "id": "critical-illness-rider",
+      "question": "what are the critical illness covered in rider",
+      "expect": {
+        "decision": "deterministic_only",
+        "source": "evidence",
+        "containsAny": ["40 covered critical illnesses", "Retrieved 40 covered critical illnesses", "critical illnesses"]
+      }
+    }
+  ]
+}
+

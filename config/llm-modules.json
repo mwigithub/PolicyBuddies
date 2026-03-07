@@ -1,0 +1,47 @@
+{
+  "sourceIngestion": {
+    "provider": "default-ingestion-provider",
+    "model": "rule-based-v1"
+  },
+  "conversation": {
+    "provider": "default-conversation-provider",
+    "model": "stub-conversation-v1"
+  },
+  "conversationLlm": {
+    "provider": "ollama-conversation-provider",
+    "model": "llama3-lowram:latest",
+    "baseUrl": "http://127.0.0.1:11434"
+  },
+  "intentRouting": {
+    "provider": "ollama-intent-router-provider",
+    "model": "llama3-lowram:latest",
+    "baseUrl": "http://127.0.0.1:11434"
+  },
+  "queryPlannerLlm": {
+    "provider": "ollama-query-planner-provider",
+    "model": "llama3-lowram:latest",
+    "baseUrl": "http://127.0.0.1:11434"
+  },
+  "checkerLlm": {
+    "provider": "ollama-checker-judge-provider",
+    "enabled": true,
+    "model": "llama3-lowram:latest",
+    "baseUrl": "http://127.0.0.1:11434"
+  },
+  "confidenceReview": {
+    "provider": "ollama-review-provider",
+    "model": "llama3-lowram:latest",
+    "baseUrl": "http://127.0.0.1:11434",
+    "independentFromIntent": true,
+    "debug": true,
+    "debugLogPath": "logs/ollama-review.log"
+  },
+  "embedding": {
+    "provider": "sentence-transformer-embedding-provider",
+    "model": "all-MiniLM-L6-v2"
+  },
+  "semanticEmbedding": {
+    "model": "all-MiniLM-L6-v2",
+    "semanticWeight": 0.6
+  }
+}

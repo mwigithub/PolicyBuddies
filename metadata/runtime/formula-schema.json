@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "policybuddies/formula-schema-v1",
+  "title": "PolicyBuddies Formula Definition",
+  "type": "object",
+  "required": [
+    "formulaId",
+    "name",
+    "category",
+    "expression",
+    "variables",
+    "version"
+  ],
+  "properties": {
+    "formulaId": {
+      "type": "string",
+      "minLength": 3
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "bonus",
+        "charge",
+        "benefit",
+        "premium",
+        "other"
+      ]
+    },
+    "expression": {
+      "type": "string",
+      "description": "Normalized arithmetic expression, e.g. 0.0155 * accumulation_units_account_value"
+    },
+    "variables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "number",
+              "integer",
+              "string",
+              "boolean"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user_input",
+              "metadata",
+              "derived"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "effectiveFromYear": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "effectiveToYear": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "rounding": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "half-up",
+            "floor",
+            "ceil",
+            "none"
+          ]
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "currency": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 3
+    },
+    "version": {
+      "type": "string"
+    },
+    "sourceCitation": {
+      "type": "object",
+      "properties": {
+        "sourcePath": {
+          "type": "string"
+        },
+        "lineRange": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

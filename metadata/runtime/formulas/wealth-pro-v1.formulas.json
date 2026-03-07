@@ -1,0 +1,95 @@
+{
+  "productId": "wealth-pro",
+  "version": "v1",
+  "formulas": [
+    {
+      "formulaId": "bonus.loyalty.v1",
+      "name": "Loyalty Bonus",
+      "category": "bonus",
+      "expression": "0.0155 * accumulation_units_account_value",
+      "variables": [
+        {
+          "name": "accumulation_units_account_value",
+          "type": "number",
+          "required": true,
+          "source": "user_input",
+          "description": "Accumulation Units Account Value used as loyalty bonus basis."
+        }
+      ],
+      "conditions": [
+        "policy_year >= 11",
+        "policy_year <= 23"
+      ],
+      "effectiveFromYear": 11,
+      "effectiveToYear": 23,
+      "rounding": {
+        "mode": "half-up",
+        "decimals": 2
+      },
+      "currency": "SGD",
+      "version": "v1",
+      "sourceCitation": {
+        "sourcePath": "data/sources/Product Summary.pdf",
+        "lineRange": "220-230"
+      }
+    },
+    {
+      "formulaId": "bonus.performance_investment.v1",
+      "name": "Performance Investment Bonus",
+      "category": "bonus",
+      "expression": "0.018 * accumulation_units_account_value",
+      "variables": [
+        {
+          "name": "accumulation_units_account_value",
+          "type": "number",
+          "required": true,
+          "source": "user_input"
+        }
+      ],
+      "conditions": [
+        "policy_year >= 4"
+      ],
+      "effectiveFromYear": 4,
+      "effectiveToYear": null,
+      "rounding": {
+        "mode": "half-up",
+        "decimals": 2
+      },
+      "currency": "SGD",
+      "version": "v1",
+      "sourceCitation": {
+        "sourcePath": "data/sources/Product Summary.pdf",
+        "lineRange": "163-179"
+      }
+    },
+    {
+      "formulaId": "bonus.power_up.v1",
+      "name": "Power-up Bonus",
+      "category": "bonus",
+      "expression": "0.003 * initial_units_account_value",
+      "variables": [
+        {
+          "name": "initial_units_account_value",
+          "type": "number",
+          "required": true,
+          "source": "user_input"
+        }
+      ],
+      "conditions": [
+        "policy_year >= 11"
+      ],
+      "effectiveFromYear": 11,
+      "effectiveToYear": null,
+      "rounding": {
+        "mode": "half-up",
+        "decimals": 2
+      },
+      "currency": "SGD",
+      "version": "v1",
+      "sourceCitation": {
+        "sourcePath": "data/sources/Product Summary.pdf",
+        "lineRange": "235-270"
+      }
+    }
+  ]
+}

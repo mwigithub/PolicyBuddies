@@ -1,0 +1,120 @@
+# ================================================================
+# CD — Continuous Deployment
+# ================================================================
+# Triggered on push to main (after CI passes).
+#
+# Current stage:  PoC / Supabase
+# Target stage:   AWS (ECS Fargate + RDS)
+#
+# Branching strategy:
+#   main      → production  (protected, requires PR + CI green)
+#   develop   → staging     (integration branch)
+#   feature/* → PRs to develop
+#
+# ── PoC deployment (Railway / Render) ─────────────────────────
+# Uncomment and configure the relevant section below once you
+# have a hosting account and secrets set up.
+#
+# ── AWS target deployment (ECS) ───────────────────────────────
+# See the AWS section below for the ECS push workflow.
+# ================================================================
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:         # allow manual trigger from GitHub UI
+
+jobs:
+
+  # ── Build & push Docker image ─────────────────────────────────
+  build-and-push:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Option A: GitHub Container Registry (free) ──────────
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy ────────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Option A: Railway ─────────────────────────────────────
+      # Requires: RAILWAY_TOKEN secret + railway.json in repo root
+      # - name: Deploy to Railway
+      #   uses: berviantoleo/railway-deploy@main
+      #   with:
+      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+
+      # ── Option B: Render ──────────────────────────────────────
+      # Requires: RENDER_SERVICE_ID + RENDER_API_KEY secrets
+      # - name: Deploy to Render
+      #   run: |
+      #     curl -X POST \
+      #       "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+      #       -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+      #       -H "Content-Type: application/json" \
+      #       -d '{"clearCache": false}'
+
+      # ── Option C: AWS ECS (target state) ─────────────────────
+      # Requires: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION secrets
+      #           ECS_CLUSTER_NAME, ECS_SERVICE_NAME, ECS_TASK_DEFINITION
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.AWS_REGION }}
+      #
+      # - name: Update ECS service
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+      #       --service ${{ secrets.ECS_SERVICE_NAME }} \
+      #       --force-new-deployment
+
+      - name: Deployment placeholder
+        run: |
+          echo "Image built: ${{ needs.build-and-push.outputs.image-tag }}"
+          echo "Uncomment the relevant deploy step above to activate CD."

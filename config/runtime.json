@@ -1,0 +1,47 @@
+{
+  "pipelineVersion": "mvp-ingestion-v1",
+  "vectorStorePath": "data/vector-store/vectors.jsonl",
+  "ingestionSourceDir": "data/sources",
+  "ingestionCatalogPath": "data/ingestion/catalog.json",
+  "extractedTextDir": "data/extracted-text",
+
+  "vectorStore": {
+    "provider": "postgres"
+  },
+  "catalog": {
+    "provider": "postgres"
+  },
+  "formulaRegistryDir": "metadata/runtime/formulas",
+  "formulaProductKey": null,
+  "formulaProductRoutingPath": "metadata/runtime/formula-product-routing.json",
+  "formulaSchemaPath": "metadata/runtime/formula-schema.json",
+  "queryRoutingPolicyPath": "metadata/runtime/query-routing-policy.json",
+  "intentLexiconPath": "metadata/runtime/intent-lexicon.json",
+  "planner": {
+    "enabled": true,
+    "strictRouting": false,
+    "llmFirst": true,
+    "minPlannerConfidence": 0.6
+  },
+  "agenticOrchestration": {
+    "enabled": true,
+    "maxClarificationTurns": 3,
+    "maxTotalTurns": 6,
+    "maxQuestionsPerTurn": 1,
+    "maxRetriesPerAgent": 1,
+    "minConfidenceToFinalize": 0.75,
+    "overallTimeoutMs": 30000
+  },
+  "demoIngestion": {
+    "enabled": false,
+    "sourceFile": "sample-policy.md",
+    "metadata": {
+      "productName": "Sample Product",
+      "jurisdiction": "SG",
+      "versionLabel": "v1",
+      "documentType": "product summary"
+    },
+    "actorId": "system",
+    "mimeType": "text/markdown"
+  }
+}

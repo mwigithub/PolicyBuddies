@@ -1,0 +1,83 @@
+# ================================================================
+# PolicyBuddies — Docker Compose
+# ================================================================
+# Services:
+#   postgres  — PostgreSQL 16 + pgvector (persistent volume)
+#   api       — PolicyBuddies Express API (built from Dockerfile)
+#
+# Usage:
+#   docker compose up -d              # start both services
+#   docker compose up -d postgres     # start DB only (for local npm dev)
+#   docker compose logs -f api        # tail API logs
+#   docker compose down               # stop all
+#   docker compose down -v            # stop all + delete volumes (full reset)
+#
+# Environment:
+#   Copy .env.example → .env and fill in GEMINI_API_KEY.
+#   DATABASE_URL is set automatically to the internal postgres service.
+# ================================================================
+
+services:
+
+  # ── PostgreSQL + pgvector ─────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: policybuddies-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: policybuddies
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-runs schema on first container start (when volume is empty)
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d policybuddies"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── PolicyBuddies API ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: policybuddies-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Internal Docker network — uses service name "postgres", not localhost
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/policybuddies
+      DATABASE_SSL: "false"
+      DATABASE_POOL_MAX: "10"
+      # Injected from host .env (see .env.example)
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-*}
+    volumes:
+      # Config and metadata: read-only mounts — edit on host, restart api to reload
+      - ./config:/app/config:ro
+      - ./metadata:/app/metadata:ro
+      # Writable volumes for ingested source files and logs
+      - api_data:/app/data
+      - api_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+  api_data:
+  api_logs:

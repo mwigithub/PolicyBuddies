@@ -1,0 +1,238 @@
+{
+  "version": "v1",
+  "defaultTopK": 5,
+  "fallbackTiers": [
+    "strict",
+    "relaxed_same_source",
+    "cross_source"
+  ],
+  "rules": [
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "basic plan",
+        "plan name",
+        "name of (the )?plan"
+      ],
+      "preferredDocumentTypes": [
+        "product illustration",
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "text"
+      ],
+      "topK": 5
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "(40|forty).*(critical illness|covered critical illnesses?)",
+        "critical illness(?:es)? list",
+        "covered critical illness(?:es)?",
+        "critical illness(?:es)?.*covered.*rider",
+        "critical illness(?:es)?.*rider",
+        "critical+ illness(?:es)?.*rider"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "critical_illness_list",
+        "text",
+        "table"
+      ],
+      "topK": 10
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "enhanced.*rider",
+        "rider benefit",
+        "rider coverage",
+        "benefit.*rider",
+        "waiver of premium",
+        "TPD",
+        "critical illness"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "text"
+      ],
+      "topK": 8
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "death benefit",
+        "maturity benefit",
+        "sum assured",
+        "coverage term",
+        "policy term",
+        "issue age",
+        "premium payment term"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "text",
+        "table"
+      ],
+      "topK": 6
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "exclusion",
+        "waiting period",
+        "claim",
+        "claims process",
+        "claim document",
+        "termination",
+        "lapse",
+        "reinstatement"
+      ],
+      "preferredDocumentTypes": [
+        "product summary",
+        "product brochure"
+      ],
+      "preferredChunkKinds": [
+        "text",
+        "metadata"
+      ],
+      "topK": 7
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "surrender value",
+        "cash value",
+        "policy value",
+        "non-guaranteed policy value",
+        "non-guaranteed surrender value"
+      ],
+      "preferredDocumentTypes": [
+        "policy illustration",
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "table",
+        "text",
+        "metadata"
+      ],
+      "topK": 7
+    },
+    {
+      "intentClass": "calculation",
+      "whenAnyRegex": [
+        "(loyalty|performance|power[- ]?up|initial)\\s+bonus",
+        "calculate",
+        "compute",
+        "project",
+        "simulate",
+        "illustrated at"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "formula",
+        "text"
+      ],
+      "topK": 5
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "total premium",
+        "premium paid",
+        "paid to-date",
+        "paid to date"
+      ],
+      "preferredDocumentTypes": [
+        "product illustration"
+      ],
+      "preferredChunkKinds": [
+        "table",
+        "text",
+        "formula"
+      ],
+      "topK": 5
+    },
+    {
+      "intentClass": "structured_lookup",
+      "whenAnyRegex": [
+        "eligible bonus",
+        "bonus list",
+        "eligibility"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "formula",
+        "text"
+      ],
+      "topK": 5
+    },
+    {
+      "intentClass": "comparison",
+      "whenAnyRegex": [
+        "compare",
+        "difference between",
+        "versus",
+        "vs\\."
+      ],
+      "preferredDocumentTypes": [
+        "product summary",
+        "product illustration"
+      ],
+      "preferredChunkKinds": [
+        "metadata",
+        "table",
+        "text"
+      ],
+      "topK": 8
+    },
+    {
+      "intentClass": "definition",
+      "whenAnyRegex": [
+        "what is",
+        "define",
+        "meaning of"
+      ],
+      "preferredDocumentTypes": [
+        "product summary"
+      ],
+      "preferredChunkKinds": [
+        "text",
+        "metadata"
+      ],
+      "topK": 4
+    },
+    {
+      "intentClass": "explanatory",
+      "whenAnyRegex": [
+        "why",
+        "how does",
+        "explain",
+        "walk me through"
+      ],
+      "preferredDocumentTypes": [],
+      "preferredChunkKinds": [
+        "text",
+        "table",
+        "formula",
+        "metadata"
+      ],
+      "topK": 6
+    }
+  ]
+}
