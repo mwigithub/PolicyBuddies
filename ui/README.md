@@ -14,7 +14,25 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3001](http://localhost:3001) when running via root script `npm run ui`, or [http://localhost:3000](http://localhost:3000) when running directly in `ui/`.
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and set:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+```
+
+Production value:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://policybuddies-production.up.railway.app
+```
+
+Reference files:
+- Local dev: `.env.local`
+- Production template: `.env.production.example` (set this value in Vercel Project Settings > Environment Variables)
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
@@ -32,5 +50,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Quick deploy from `ui/`:
+
+```bash
+vercel --prod
+```
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -1,0 +1,200 @@
+# ================================================================
+# Deploy to AWS (ECS Fargate + ECR + RDS)
+# ================================================================
+#
+# This workflow replaces deploy-all.yml when migrating from
+# Railway + Supabase to AWS infrastructure.
+#
+# Required AWS secrets (add in GitHub → Settings → Secrets):
+#   AWS_ACCESS_KEY_ID         IAM user access key
+#   AWS_SECRET_ACCESS_KEY     IAM user secret key
+#   AWS_REGION                e.g. ap-southeast-1
+#   ECR_REPOSITORY            ECR repository name, e.g. policybuddies
+#   ECS_CLUSTER_NAME          ECS cluster name
+#   ECS_SERVICE_NAME          ECS service name
+#   ECS_TASK_DEFINITION       Task definition family name
+#   RDS_DATABASE_URL          postgresql://user:pass@host:5432/policybuddies
+#   GEMINI_API_KEY            Google Gemini API key
+#   ALLOWED_ORIGIN            CORS allowed origin (e.g. https://your-frontend.com)
+#   API_BASE_URL              Deployed API URL for smoke test (optional)
+#
+# Migration from Railway + Supabase:
+#   See docs/deployment/DEPLOYMENT.md → "Migrating to AWS"
+# ================================================================
+
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:         # Manual trigger only — activate when ready
+  # push:
+  #   branches: [main]       # Uncomment to enable auto-deploy on push
+
+permissions:
+  contents: read
+  id-token: write            # Required for OIDC auth (optional, see below)
+
+jobs:
+
+  # ── Preflight ─────────────────────────────────────────────────
+  preflight:
+    name: Preflight Secrets Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        run: |
+          [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]     || (echo "Missing: AWS_ACCESS_KEY_ID" && exit 1)
+          [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] || (echo "Missing: AWS_SECRET_ACCESS_KEY" && exit 1)
+          [ -n "${{ secrets.AWS_REGION }}" ]            || (echo "Missing: AWS_REGION" && exit 1)
+          [ -n "${{ secrets.ECR_REPOSITORY }}" ]        || (echo "Missing: ECR_REPOSITORY" && exit 1)
+          [ -n "${{ secrets.ECS_CLUSTER_NAME }}" ]      || (echo "Missing: ECS_CLUSTER_NAME" && exit 1)
+          [ -n "${{ secrets.ECS_SERVICE_NAME }}" ]      || (echo "Missing: ECS_SERVICE_NAME" && exit 1)
+          [ -n "${{ secrets.ECS_TASK_DEFINITION }}" ]   || (echo "Missing: ECS_TASK_DEFINITION" && exit 1)
+          [ -n "${{ secrets.RDS_DATABASE_URL }}" ]      || (echo "Missing: RDS_DATABASE_URL" && exit 1)
+          [ -n "${{ secrets.GEMINI_API_KEY }}" ]        || (echo "Missing: GEMINI_API_KEY" && exit 1)
+          echo "All required secrets are present."
+
+  # ── Database Migration ─────────────────────────────────────────
+  migrate-rds:
+    name: Apply Schema to RDS
+    runs-on: ubuntu-latest
+    needs: preflight
+    env:
+      DATABASE_URL: ${{ secrets.RDS_DATABASE_URL }}
+      DATABASE_SSL: "true"
+      DATABASE_POOL_MAX: "5"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply schema
+        run: npm run db:bootstrap
+
+      - name: Verify schema health
+        run: npm run db:healthcheck
+
+  # ── Build & Push to ECR ────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Image to ECR
+    runs-on: ubuntu-latest
+    needs: migrate-rds
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build, tag, and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="${ECR_REGISTRY}/${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
+          LATEST_URI="${ECR_REGISTRY}/${{ secrets.ECR_REPOSITORY }}:latest"
+
+          docker build \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            -t "${IMAGE_URI}" \
+            -t "${LATEST_URI}" \
+            .
+
+          docker push "${IMAGE_URI}"
+          docker push "${LATEST_URI}"
+
+          echo "image=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+  # ── Update ECS Task Definition & Deploy ───────────────────────
+  deploy-ecs:
+    name: Deploy to ECS Fargate
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: policybuddies-api
+          image: ${{ needs.build-and-push.outputs.image }}
+          environment-variables: |
+            DATABASE_URL=${{ secrets.RDS_DATABASE_URL }}
+            DATABASE_SSL=true
+            DATABASE_POOL_MAX=10
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            ALLOWED_ORIGIN=${{ secrets.ALLOWED_ORIGIN || '*' }}
+            NODE_ENV=production
+            PORT=3000
+
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE_NAME }}
+          cluster: ${{ secrets.ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
+
+  # ── Smoke Test ────────────────────────────────────────────────
+  smoke-test:
+    name: Post-Deploy Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy-ecs
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
+    steps:
+      - name: Skip when API_BASE_URL is missing
+        if: ${{ env.API_BASE_URL == '' }}
+        run: echo "API_BASE_URL is not set. Skipping smoke test."
+
+      - name: Health check
+        if: ${{ env.API_BASE_URL != '' }}
+        run: |
+          curl -fsS "${API_BASE_URL}/api/health" | jq .
+
+      - name: Catalog check
+        if: ${{ env.API_BASE_URL != '' }}
+        run: |
+          curl -fsS "${API_BASE_URL}/api/catalog" | jq '.success'
