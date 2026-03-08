@@ -26,6 +26,14 @@ Each platform has:
 
 **Read time:** 15-30 minutes (per platform)
 
+### [ENV-MODES.md](./ENV-MODES.md)
+**Official runbook for environment modes**
+
+- Production: Railway + Supabase
+- Local: Docker Compose + local webserver
+- Required secrets/variables
+- One-click deploy and verification commands
+
 ---
 
 ## 🎯 Quick Start by Platform
