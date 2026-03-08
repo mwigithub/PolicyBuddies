@@ -85,11 +85,14 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Option A: Railway ─────────────────────────────────────
-      # Requires: RAILWAY_TOKEN secret + railway.json in repo root
+      # Requires: RAILWAY_TOKEN secret (service token) + railway.json in repo root
+      # RAILWAY_TOKEN must be a service token so the CLI knows which project/service to target.
       - name: Deploy to Railway
-        uses: berviantoleo/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli@latest
+          railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       # ── Option B: Render ──────────────────────────────────────
       # Requires: RENDER_SERVICE_ID + RENDER_API_KEY secrets
