@@ -31,8 +31,18 @@ const runtime = createIngestionRuntime();
 // Configured via config/runtime.json → catalog.provider
 // "file"     — default, zero dependencies, works locally
 // "postgres" — requires DATABASE_URL; works on Supabase and AWS RDS
-const catalogProvider = runtime.runtimeConfig.catalog?.provider ?? "file";
+const hasDatabaseUrl = Boolean(String(process.env.DATABASE_URL ?? "").trim());
+const requestedCatalogProvider = runtime.runtimeConfig.catalog?.provider ?? "file";
+const catalogProvider =
+  requestedCatalogProvider === "postgres" && !hasDatabaseUrl
+    ? "file"
+    : requestedCatalogProvider;
 let catalog;
+if (requestedCatalogProvider === "postgres" && !hasDatabaseUrl) {
+  console.warn(
+    "[server] DATABASE_URL is missing; falling back catalog store from postgres to file.",
+  );
+}
 if (catalogProvider === "postgres") {
   catalog = createPostgresIngestionCatalog({ pool: getPool() });
   console.log("[server] Catalog store: postgres");

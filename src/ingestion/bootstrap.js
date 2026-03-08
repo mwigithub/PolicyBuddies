@@ -28,6 +28,7 @@ import { getPool } from "../db/pool.js";
 export function createIngestionRuntime() {
   const llmConfig = loadLlmConfig();
   const runtimeConfig = loadRuntimeConfig();
+  const hasDatabaseUrl = Boolean(String(process.env.DATABASE_URL ?? "").trim());
   const runRepository = createInMemoryRunRepository();
   const auditRepository = createInMemoryAuditRepository();
   const documentRepository = createInMemoryDocumentRepository();
@@ -49,8 +50,17 @@ export function createIngestionRuntime() {
   // Configured via config/runtime.json → vectorStore.provider
   // "file"     — default, zero dependencies, works locally
   // "postgres" — requires DATABASE_URL; works on Supabase and AWS RDS
-  const vectorStoreProvider = runtimeConfig.vectorStore?.provider ?? "file";
+  const requestedVectorStoreProvider = runtimeConfig.vectorStore?.provider ?? "file";
+  const vectorStoreProvider =
+    requestedVectorStoreProvider === "postgres" && !hasDatabaseUrl
+      ? "file"
+      : requestedVectorStoreProvider;
   let vectorStore;
+  if (requestedVectorStoreProvider === "postgres" && !hasDatabaseUrl) {
+    console.warn(
+      "[bootstrap] DATABASE_URL is missing; falling back vector store from postgres to file.",
+    );
+  }
   if (vectorStoreProvider === "postgres") {
     vectorStore = createPostgresVectorStore({ pool: getPool() });
     console.log("[bootstrap] Vector store: postgres (pgvector)");
