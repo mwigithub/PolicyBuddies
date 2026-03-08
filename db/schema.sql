@@ -50,44 +50,32 @@ CREATE INDEX IF NOT EXISTS idx_catalog_status      ON ingestion_catalog (status)
 -- Replaces: data/vector-store/vectors.jsonl
 --
 -- Stores one row per text chunk × embedding model.
+-- chunk_text is stored here so query-time retrieval does NOT
+-- require disk files (important for Railway/cloud deployments
+-- where /app/data is ephemeral).
 --
--- IMPORTANT — vector dimension:
---   The column is typed vector(384) which matches the default
---   embedding model (all-MiniLM-L6-v2, 384 dims).
---   If you switch to a different model, drop and recreate the
---   table with the correct dimension before re-ingesting.
---   See docs/guides/POSTGRES-MIGRATION.md for details.
+-- Embedding model: Gemini text-embedding-004 (768 dims)
+-- To switch models: DROP TABLE document_vectors; re-run schema;
+-- re-ingest all documents.
 -- =============================================================
 CREATE TABLE IF NOT EXISTS document_vectors (
   vector_record_id         TEXT        PRIMARY KEY,
   run_id                   TEXT,
   document_version_id      TEXT        NOT NULL,   -- FK → ingestion_catalog.id (logical)
   chunk_id                 TEXT,
+  chunk_text               TEXT,                   -- chunk content for retrieval (no disk read needed)
   embedding_provider_name  TEXT,
   embedding_provider_model TEXT,
-  vector                   vector(384),            -- change 384 if using a different model
+  vector                   vector(768),            -- Gemini text-embedding-004 = 768 dims
   created_at               TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_vectors_doc_version
   ON document_vectors (document_version_id);
 
--- =============================================================
--- ANN Index (optional — uncomment after initial bulk load)
--- =============================================================
--- HNSW gives the best query latency once data is loaded.
--- Create it AFTER ingesting documents; building on an empty
--- table has no effect and will need to be done again later.
---
---   CREATE INDEX idx_vectors_hnsw
---     ON document_vectors
---     USING hnsw (vector vector_cosine_ops)
---     WITH (m = 16, ef_construction = 64);
---
--- Alternative (lower memory, good for ≥ 10k rows):
---
---   CREATE INDEX idx_vectors_ivfflat
---     ON document_vectors
---     USING ivfflat (vector vector_cosine_ops)
---     WITH (lists = 100);
--- =============================================================
+-- HNSW index for fast cosine similarity search
+-- (built after initial data load; no-op on empty table)
+CREATE INDEX IF NOT EXISTS idx_vectors_hnsw
+  ON document_vectors
+  USING hnsw (vector vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);

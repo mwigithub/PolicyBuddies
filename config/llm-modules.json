@@ -34,8 +34,8 @@
     "debugLogPath": "logs/gemini-review.log"
   },
   "embedding": {
-    "provider": "sentence-transformer-embedding-provider",
-    "model": "all-MiniLM-L6-v2"
+    "provider": "gemini-embedding-provider",
+    "model": "text-embedding-004"
   },
   "semanticEmbedding": {
     "model": "all-MiniLM-L6-v2",

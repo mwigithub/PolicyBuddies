@@ -21,6 +21,8 @@ import { createDefaultAnswerCheckerAgent } from "../agentic/agents/checker/defau
 import { createAskBackOrchestrator } from "../agentic/orchestrator/askBackOrchestrator.js";
 import { createSemanticReranker } from "../qa/providers/semanticReranker.js";
 import { buildBusinessMetadata } from "../ingestion/metadata/businessMetadata.js";
+import { createGeminiEmbeddingProvider } from "../ingestion/providers/geminiEmbeddingProvider.js";
+import { createPostgresVectorStore } from "../ingestion/vector/postgresVectorStore.js";
 
 // ── Initialise ──────────────────────────────────────────────────────────────
 loadEnvFile();
@@ -74,6 +76,22 @@ const answerCheckerAgent = createDefaultAnswerCheckerAgent();
 
 // ── Semantic reranker — blends keyword + sentence-transformer similarity ─────
 const semanticReranker = createSemanticReranker(llmConfig.semanticEmbedding ?? {});
+
+// ── Gemini embedding provider + vector store for semantic search ─────────────
+// Used for query-time vector similarity search (bypasses disk-file dependency).
+const geminiEmbedder = hasDatabaseUrl
+  ? (() => {
+      try {
+        return createGeminiEmbeddingProvider({});
+      } catch {
+        console.warn("[server] Gemini embedding unavailable — vector search disabled.");
+        return null;
+      }
+    })()
+  : null;
+const vectorStore = hasDatabaseUrl
+  ? createPostgresVectorStore({ pool: getPool() })
+  : null;
 
 // ── Express app ─────────────────────────────────────────────────────────────
 const app = express();
@@ -348,6 +366,72 @@ app.post("/api/ask", async (req, res) => {
         reasoning: { detectedIntent: "metadata_lookup" },
         orchestration: { status: "METADATA_SHORTCUT", finalizedAt: new Date().toISOString() },
       });
+    }
+
+    // ── Vector search fast path ───────────────────────────────────────────────
+    // When postgres + Gemini embedder are available, embed the question and do
+    // cosine similarity search. This works even when disk files are missing
+    // (e.g. Railway ephemeral filesystem after redeploy).
+    if (geminiEmbedder && vectorStore) {
+      try {
+        const queryVector = await geminiEmbedder.embedText(question);
+        const chunks = await vectorStore.searchSimilar(
+          queryVector,
+          topK * 2,
+          productFilter || null,
+        );
+
+        if (chunks.length > 0) {
+          const context = chunks
+            .map((c, i) => `[${i + 1}] ${c.chunkText}`)
+            .join("\n\n");
+          const prompt = `You are an insurance policy assistant for "${productFilter || "the selected policy"}".
+Answer the user's question based ONLY on the provided policy document excerpts below.
+
+Policy document excerpts:
+${context}
+
+Question: ${question}
+
+Answer clearly and concisely. If the information is not found in the excerpts, say so plainly.`;
+
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.1 },
+              }),
+            },
+          );
+          const geminiData = await geminiRes.json();
+          const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+          if (answer) {
+            return res.json({
+              success: true,
+              question,
+              answer,
+              confidence: 0.9,
+              sources: chunks.map((c) => ({
+                document: c.sourcePath?.split("/").pop() ?? "",
+                productName: c.productName,
+                relevantText: c.chunkText?.slice(0, 300) ?? "",
+                score: Number(c.score),
+              })),
+              reasoning: { detectedIntent: "vector_search" },
+              orchestration: {
+                status: "VECTOR_SEARCH",
+                finalizedAt: new Date().toISOString(),
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[ask] Vector search fast path failed, falling back to orchestrator:", err.message);
+      }
     }
 
     const questionService = createQuestionService({

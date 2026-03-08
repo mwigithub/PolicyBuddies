@@ -293,6 +293,7 @@ export function createIngestionService({
           runId: run.runId,
           documentVersionId: documentVersion.documentVersionId,
           chunkId: chunk.chunkId,
+          chunkText: chunk.chunkText ?? null,
           embeddingProviderName: embeddingProvider.name,
           embeddingProviderModel: embeddingProvider.model,
           vector: vectors[i],

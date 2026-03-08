@@ -4,6 +4,7 @@ import { loadRuntimeConfig } from "../config/runtimeConfig.js";
 import { createIngestionService } from "./ingestionService.js";
 import { createDefaultEmbeddingProvider } from "./providers/defaultEmbeddingProvider.js";
 import { createSentenceTransformerEmbeddingProvider } from "./providers/sentenceTransformerEmbeddingProvider.js";
+import { createGeminiEmbeddingProvider } from "./providers/geminiEmbeddingProvider.js";
 import { createDefaultIngestionProvider } from "./providers/defaultIngestionProvider.js";
 import {
   createInMemoryAuditRepository,
@@ -42,7 +43,9 @@ export function createIngestionRuntime() {
   // Configured via llm-modules.json → embedding.provider
   const embeddingConfig = llmConfig.embedding ?? {};
   const embeddingProvider =
-    embeddingConfig.provider === "sentence-transformer-embedding-provider"
+    embeddingConfig.provider === "gemini-embedding-provider"
+      ? createGeminiEmbeddingProvider(embeddingConfig)
+      : embeddingConfig.provider === "sentence-transformer-embedding-provider"
       ? createSentenceTransformerEmbeddingProvider(embeddingConfig)
       : createDefaultEmbeddingProvider(embeddingConfig);
 
