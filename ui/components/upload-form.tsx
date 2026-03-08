@@ -131,29 +131,17 @@ export function UploadForm({ onSuccess }: Props) {
         </div>
       )}
 
-      {/* Plan name + version */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Plan Name <span className="text-red-500">*</span></label>
-          <input
-            type="text"
-            value={fields.planName}
-            onChange={set("planName")}
-            placeholder="e.g. Wealth Pro II"
-            required
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Version</label>
-          <input
-            type="text"
-            value={fields.versionLabel}
-            onChange={set("versionLabel")}
-            placeholder="v1.0"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
-          />
-        </div>
+      {/* Plan name */}
+      <div className="space-y-1">
+        <label className="text-sm font-medium text-gray-700">Plan Name <span className="text-red-500">*</span></label>
+        <input
+          type="text"
+          value={fields.planName}
+          onChange={set("planName")}
+          placeholder="e.g. Wealth Pro II"
+          required
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+        />
       </div>
 
       {/* Status */}
@@ -170,7 +158,7 @@ export function UploadForm({ onSuccess }: Props) {
 
       <button
         type="submit"
-        disabled={!file || !fields.insurer || !fields.planName || !fields.jurisdiction || !fields.insuranceType || !fields.documentType || status === "uploading"}
+        disabled={!file || !fields.planName || !fields.insurer || !fields.jurisdiction || !fields.insuranceType || !fields.documentType || status === "uploading"}
         className="w-full rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
       >
         {status === "uploading" ? <><Loader2 size={15} className="animate-spin" /> Uploading…</> : "Upload Document"}

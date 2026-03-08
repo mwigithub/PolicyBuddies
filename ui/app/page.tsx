@@ -5,7 +5,6 @@ import { Search, Lightbulb, Clock, ArrowRight, Shield, FileText, Coins, Sparkles
 import { useAsk } from "@/hooks/use-ask";
 import { useCatalog } from "@/hooks/use-catalog";
 import { AnswerDisplay } from "@/components/answer-display";
-import { ClarificationDialog } from "@/components/clarification-dialog";
 
 const EXAMPLE_QUESTIONS = {
   Coverage: {
@@ -89,18 +88,11 @@ export default function HomePage() {
   }, [loading]);
 
   const productOptions = Array.from(new Set(documents.map((d) => d.productName).filter(Boolean) as string[]));
-  
-  // Set first product as default when products load
-  useEffect(() => {
-    if (productOptions.length > 0 && !product) {
-      setProduct(productOptions[0]);
-    }
-  }, [productOptions]);
 
   const handleAsk = async (q: string, keepSession = false) => {
-    if (!q.trim() || !product || loading) return;
+    if (!q.trim() || loading) return;
     setShowAnswer(false);
-    await ask(q, keepSession, product);
+    await ask(q, keepSession, product || undefined);
     setShowAnswer(true);
   };
 
@@ -111,10 +103,7 @@ export default function HomePage() {
     setActiveHistoryItem(null);
   };
 
-  const needsClarification =
-    showAnswer &&
-    result?.reasoning?.clarificationNeeded &&
-    (result.reasoning.clarificationQuestions?.length ?? 0) > 0;
+  const needsClarification = false;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F8FAFC] to-white">
@@ -145,7 +134,7 @@ export default function HomePage() {
                   onChange={(e) => setProduct(e.target.value)}
                   className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-3 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                 >
-                  <option value="">Select a product...</option>
+                  <option value="">Select a product…</option>
                   {productOptions.map((p) => <option key={p}>{p}</option>)}
                 </select>
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
@@ -299,15 +288,6 @@ export default function HomePage() {
 
       </div>
 
-      {/* Clarification dialog */}
-      {needsClarification && result?.reasoning?.clarificationQuestions && (
-        <ClarificationDialog
-          open={true}
-          questions={result.reasoning.clarificationQuestions}
-          onConfirm={(answer) => handleAsk(answer, true)}
-          onCancel={() => setShowAnswer(false)}
-        />
-      )}
     </div>
   );
 }
