@@ -4,8 +4,8 @@
  * PolicyBuddies API Client - Node.js Example
  * 
  * Usage:
- *   npm run api              # Start server in one terminal
- *   node scripts/api-client.mjs  # Run this in another
+ * npm run api              # Start server in one terminal
+ * node scripts/api-client.mjs  # Run this in another
  */
 
 const API_URL = process.env.API_URL || "http://localhost:3000";
