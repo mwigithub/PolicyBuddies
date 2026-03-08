@@ -12,6 +12,7 @@ const EMPTY = { insurer: "", planName: "", jurisdiction: "", insuranceType: "", 
 
 export function UploadForm({ onSuccess }: Props) {
   const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null);
+  const [existingPlans, setExistingPlans] = useState<string[]>([]);
   const [fields, setFields] = useState(EMPTY);
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -20,6 +21,12 @@ export function UploadForm({ onSuccess }: Props) {
 
   useEffect(() => {
     api.taxonomy().then(setTaxonomy).catch(() => setMessage("Failed to load taxonomy"));
+    api.catalog().then((res) => {
+      if (res.success) {
+        const plans = Array.from(new Set(res.documents.map((d) => d.productName).filter(Boolean) as string[])).sort();
+        setExistingPlans(plans);
+      }
+    });
   }, []);
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -52,9 +59,16 @@ export function UploadForm({ onSuccess }: Props) {
         reader.onerror = reject;
       });
 
+      // Build final plan name: if it's a new entry (not in existing list), prefix with insurer label
+      const insurerLabel = taxonomy?.insurers.find((i) => i.value === fields.insurer)?.label ?? fields.insurer;
+      const isExisting = existingPlans.includes(fields.planName);
+      const finalPlanName = isExisting || !fields.insurer
+        ? fields.planName
+        : `${insurerLabel} ${fields.planName}`;
+
       const result = await api.ingest(file.name, content, {
         insurer: fields.insurer,
-        planName: fields.planName,
+        planName: finalPlanName,
         jurisdiction: fields.jurisdiction,
         insuranceType: fields.insuranceType,
         documentType: fields.documentType,
@@ -92,6 +106,12 @@ export function UploadForm({ onSuccess }: Props) {
       </select>
     </div>
   );
+
+  // Plans relevant to selected insurer (for datalist suggestions)
+  const insurerLabel = taxonomy?.insurers.find((i) => i.value === fields.insurer)?.label ?? "";
+  const suggestedPlans = fields.insurer
+    ? existingPlans.filter((p) => p.toLowerCase().startsWith(insurerLabel.toLowerCase()))
+    : existingPlans;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -131,17 +151,31 @@ export function UploadForm({ onSuccess }: Props) {
         </div>
       )}
 
-      {/* Plan name */}
+      {/* Plan name — combobox: select existing or type new */}
       <div className="space-y-1">
-        <label className="text-sm font-medium text-gray-700">Plan Name <span className="text-red-500">*</span></label>
+        <label className="text-sm font-medium text-gray-700">
+          Plan Name <span className="text-red-500">*</span>
+          {fields.insurer && !existingPlans.includes(fields.planName) && fields.planName && (
+            <span className="ml-2 text-xs text-blue-500 font-normal">
+              Will be saved as: {insurerLabel} {fields.planName}
+            </span>
+          )}
+        </label>
         <input
           type="text"
           value={fields.planName}
           onChange={set("planName")}
-          placeholder="e.g. Wealth Pro II"
+          list="plan-name-suggestions"
+          placeholder="Select existing or type new plan name"
           required
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
         />
+        <datalist id="plan-name-suggestions">
+          {suggestedPlans.map((p) => <option key={p} value={p} />)}
+        </datalist>
+        {fields.insurer && suggestedPlans.length === 0 && (
+          <p className="text-xs text-gray-400">No existing plans for this insurer — a new one will be created.</p>
+        )}
       </div>
 
       {/* Status */}
