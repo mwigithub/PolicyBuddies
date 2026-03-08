@@ -212,28 +212,23 @@ app.post("/api/ingest", async (req, res) => {
     const { filename, content, metadata, actorId = "api-user" } = req.body;
     const { insurer, planName, jurisdiction, insuranceType, documentType, versionLabel } = metadata ?? {};
 
-    if (!filename || !content || !insurer || !planName || !jurisdiction || !insuranceType || !documentType) {
+    if (!filename || !content || !planName) {
       return res.status(400).json({
         success: false,
-        error: "Missing required fields: filename, content, metadata (insurer, planName, jurisdiction, insuranceType, documentType)",
+        error: "Missing required fields: filename, content, metadata.planName",
       });
     }
 
-    // Validate insurer and insuranceType against taxonomy
-    const taxonomy = JSON.parse(readFileSync(resolve(process.cwd(), "config/taxonomy.json"), "utf8"));
-    const validInsurers = taxonomy.insurers.map((i) => i.value);
-    const validTypes = taxonomy.insuranceTypes.map((t) => t.value);
-    if (!validInsurers.includes(insurer)) {
-      return res.status(400).json({ success: false, error: `Invalid insurer: ${insurer}` });
-    }
-    if (!validTypes.includes(insuranceType)) {
-      return res.status(400).json({ success: false, error: `Invalid insuranceType: ${insuranceType}` });
-    }
+    // Default optional taxonomy fields so the pipeline always has valid path segments
+    const resolvedInsurer = insurer || "other";
+    const resolvedJurisdiction = jurisdiction || "other";
+    const resolvedInsuranceType = insuranceType || "other";
+    const resolvedDocumentType = documentType || "other";
 
     // Build structured path: data/sources/{insurer}/{jurisdiction}/{insuranceType}/{documentType}/{filename}
     const isPdf = filename.toLowerCase().endsWith(".pdf");
     const safeFilename = filename.replace(/\s+/g, "-").toLowerCase();
-    const structuredPath = `data/sources/${insurer}/${jurisdiction.toLowerCase()}/${insuranceType}/${documentType}/${safeFilename}`;
+    const structuredPath = `data/sources/${resolvedInsurer}/${resolvedJurisdiction.toLowerCase()}/${resolvedInsuranceType}/${resolvedDocumentType}/${safeFilename}`;
     mkdirSync(resolve(process.cwd(), dirname(structuredPath)), { recursive: true });
     writeFileSync(
       resolve(process.cwd(), structuredPath),
@@ -265,17 +260,17 @@ app.post("/api/ingest", async (req, res) => {
       id: ingestResult.documentVersionId,
       sourcePath: structuredPath,
       productName: planName,
-      jurisdiction,
-      insuranceType,
+      jurisdiction: resolvedJurisdiction,
+      insuranceType: resolvedInsuranceType,
       versionLabel: versionLabel || "v1.0",
-      documentType,
+      documentType: resolvedDocumentType,
       status: "completed",
       indexedAt: new Date().toISOString(),
       runId: ingestResult.runId,
       extractedTextPath,
       metadata: {
-        insurer,
-        insuranceType,
+        insurer: resolvedInsurer,
+        insuranceType: resolvedInsuranceType,
         planName,
         chunkCount: ingestResult.chunkCount,
         vectorCount: ingestResult.vectorCount,
