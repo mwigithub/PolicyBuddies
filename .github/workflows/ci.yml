@@ -40,7 +40,9 @@ jobs:
 
       - name: Check JS syntax (all source files)
         run: |
-          find src -name "*.js" | xargs -I{} node --input-type=module --check < {}
+          find src -name "*.js" | while read -r f; do
+            node --input-type=module --check < "$f" || exit 1
+          done
 
   # ── Docker Build ──────────────────────────────────────────────
   docker:

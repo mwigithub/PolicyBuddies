@@ -26,6 +26,10 @@ on:
     branches: [main]
   workflow_dispatch:         # allow manual trigger from GitHub UI
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
 
   # ── Build & push Docker image ─────────────────────────────────
