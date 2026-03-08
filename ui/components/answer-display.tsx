@@ -33,6 +33,25 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   );
 }
 
+function parseAnswer(raw: string): { main: string; highlights: string[] } {
+  const text = raw
+    .replace(/^Direct Answer:\s*/i, "")
+    .replace(/^#+\s*/gm, "")
+    .trim();
+
+  const hiIdx = text.search(/\nEvidence Highlights:\s*/i);
+  if (hiIdx === -1) return { main: text, highlights: [] };
+
+  const main = text.slice(0, hiIdx).trim();
+  const hiSection = text.slice(hiIdx).replace(/\nEvidence Highlights:\s*/i, "").trim();
+  const highlights = hiSection
+    .split("\n")
+    .map((l) => l.replace(/^[-•]\s*/, "").trim())
+    .filter(Boolean);
+
+  return { main, highlights };
+}
+
 export function AnswerDisplay({ result, onFollowUp, onNewQuestion, loading }: AnswerDisplayProps) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
@@ -79,12 +98,25 @@ export function AnswerDisplay({ result, onFollowUp, onNewQuestion, loading }: An
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-5">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Answer</p>
-        <p className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">
-          {result.answer}
-        </p>
-      </div>
+      {(() => {
+        const { main, highlights } = parseAnswer(result.answer ?? "");
+        return (
+          <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-5 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Answer</p>
+            <p className="text-base text-gray-800 leading-relaxed font-medium">{main}</p>
+            {highlights.length > 0 && (
+              <ul className="space-y-1 pt-1 border-t border-gray-100">
+                {highlights.map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    {h}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
 
       {result.sources && result.sources.length > 0 && (
         <div className="space-y-3">
