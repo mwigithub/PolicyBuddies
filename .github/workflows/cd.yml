@@ -82,10 +82,10 @@ jobs:
 
       # ── Option A: Railway ─────────────────────────────────────
       # Requires: RAILWAY_TOKEN secret + railway.json in repo root
-      # - name: Deploy to Railway
-      #   uses: berviantoleo/railway-deploy@main
-      #   with:
-      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy to Railway
+        uses: berviantoleo/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
 
       # ── Option B: Render ──────────────────────────────────────
       # Requires: RENDER_SERVICE_ID + RENDER_API_KEY secrets
@@ -114,7 +114,5 @@ jobs:
       #       --service ${{ secrets.ECS_SERVICE_NAME }} \
       #       --force-new-deployment
 
-      - name: Deployment placeholder
-        run: |
-          echo "Image built: ${{ needs.build-and-push.outputs.image-tag }}"
-          echo "Uncomment the relevant deploy step above to activate CD."
+      - name: Log deployed image
+        run: echo "Deployed image ${{ needs.build-and-push.outputs.image-tag }} to Railway."
