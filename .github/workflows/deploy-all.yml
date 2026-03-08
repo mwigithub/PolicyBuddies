@@ -19,8 +19,14 @@ jobs:
         run: |
           [ -n "${{ secrets.SUPABASE_DATABASE_URL }}" ] || (echo "Missing secret: SUPABASE_DATABASE_URL" && exit 1)
           [ -n "${{ secrets.RAILWAY_TOKEN }}" ] || (echo "Missing secret: RAILWAY_TOKEN" && exit 1)
-          [ -n "${{ secrets.RAILWAY_PROJECT_ID }}" ] || (echo "Missing secret: RAILWAY_PROJECT_ID" && exit 1)
-          [ -n "${{ secrets.RAILWAY_SERVICE_ID }}" ] || (echo "Missing secret: RAILWAY_SERVICE_ID" && exit 1)
+          if [ -z "${{ secrets.RAILWAY_PROJECT_ID }}" ] && [ -z "${{ secrets.RAILWAY_PROJECT_NAME }}" ]; then
+            echo "Missing Railway project selector: set RAILWAY_PROJECT_ID or RAILWAY_PROJECT_NAME"
+            exit 1
+          fi
+          if [ -z "${{ secrets.RAILWAY_SERVICE_ID }}" ] && [ -z "${{ secrets.RAILWAY_SERVICE_NAME }}" ]; then
+            echo "Missing Railway service selector: set RAILWAY_SERVICE_ID or RAILWAY_SERVICE_NAME"
+            exit 1
+          fi
           if [ -z "${{ secrets.API_BASE_URL }}" ]; then
             echo "API_BASE_URL is not set. Deploy will continue; smoke test will be skipped."
           fi
@@ -99,6 +105,8 @@ jobs:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      RAILWAY_PROJECT_NAME: ${{ secrets.RAILWAY_PROJECT_NAME }}
+      RAILWAY_SERVICE_NAME: ${{ secrets.RAILWAY_SERVICE_NAME }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,10 +121,19 @@ jobs:
 
       - name: Deploy to Railway via CLI
         run: |
-          railway up \
-            --project "${RAILWAY_PROJECT_ID}" \
-            --service "${RAILWAY_SERVICE_ID}" \
-            --ci
+          if [ -n "${RAILWAY_PROJECT_ID}" ]; then
+            PROJECT_FLAG="--project ${RAILWAY_PROJECT_ID}"
+          else
+            PROJECT_FLAG="--project ${RAILWAY_PROJECT_NAME}"
+          fi
+
+          if [ -n "${RAILWAY_SERVICE_ID}" ]; then
+            SERVICE_FLAG="--service ${RAILWAY_SERVICE_ID}"
+          else
+            SERVICE_FLAG="--service ${RAILWAY_SERVICE_NAME}"
+          fi
+
+          railway up ${PROJECT_FLAG} ${SERVICE_FLAG} --ci
 
   smoke-test:
     name: Post-Deploy Smoke Test
