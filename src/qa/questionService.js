@@ -9,6 +9,22 @@ import { createInsuranceRegexMatcher } from "../config/insuranceRegexConfig.js";
 
 const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".text", ".csv"]);
 const insuranceRegexMatcher = createInsuranceRegexMatcher();
+
+// Common function words that carry no domain meaning and inflate relevance
+// scores when matched against policy document chunks.
+const STOPWORDS = new Set([
+  "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "could",
+  "should", "may", "might", "shall", "can", "to", "of", "in", "on",
+  "at", "by", "for", "with", "about", "as", "into", "from",
+  "if", "or", "and", "but", "what", "which", "who", "whom",
+  "this", "that", "these", "those", "it", "its", "how", "when",
+  "where", "why", "so", "not", "no", "nor", "up", "out",
+  "me", "my", "we", "our", "you", "your", "he", "she", "they",
+  "them", "their", "i", "get", "got", "just", "also", "very",
+  "there", "here", "then", "than", "do",
+]);
+
 const TABLE_INTENT_TOKENS = new Set([
   "table",
   "row",
@@ -823,7 +839,9 @@ export function createQuestionService({
         }
         : null;
       const filtered = entries.filter((entry) => matchFilters(entry, filters));
-      const questionTokens = tokenize(normalizedQuestion);
+      const questionTokens = tokenize(normalizedQuestion).filter(
+        (token) => !STOPWORDS.has(token),
+      );
       const fallbackRouting = detectRoutingHints(questionTokens, normalizedQuestion);
       let routed = {
         ...fallbackRouting,
@@ -965,7 +983,11 @@ export function createQuestionService({
               documentType: entry.documentType ?? "",
               scopeMatched,
             });
-            if (score <= 0) {
+            // Require a meaningful baseline score. Stopword filtering removes
+            // common function words from questionTokens, but this threshold
+            // provides an additional guard so weakly-matching chunks from
+            // off-topic questions are never surfaced.
+            if (score < 0.05) {
               continue;
             }
             let plannerBoost = 0;

@@ -21,9 +21,12 @@ function extractTextWithPython(sourcePath) {
       maxBuffer: 20 * 1024 * 1024,
       timeout: 60_000,
     });
-    // PyMuPDF may print non-JSON warnings before the JSON line — take the last non-empty line
-    const lines = stdout.split("\n").filter((l) => l.trim());
-    const parsed = JSON.parse(lines[lines.length - 1]);
+    // PyMuPDF may print non-JSON advisory lines to stdout; find the JSON line.
+    const jsonLine = stdout.split("\n").find((l) => l.trimStart().startsWith("{"));
+    if (!jsonLine) {
+      return { ok: false, text: "", engine: "python-unavailable", error: "no JSON output from pdf_to_text.py" };
+    }
+    const parsed = JSON.parse(jsonLine);
     if (!parsed.ok) {
       return {
         ok: false,
