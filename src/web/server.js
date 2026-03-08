@@ -168,6 +168,8 @@ app.get("/api/health", (_req, res) => {
       pipeline: runtime.runtimeConfig.pipelineVersion,
       catalogProvider,
       vectorStoreProvider: runtime.runtimeConfig.vectorStore?.provider ?? "file",
+      geminiEmbedderReady: !!geminiEmbedder,
+      vectorStoreReady: !!vectorStore,
     },
   });
 });
