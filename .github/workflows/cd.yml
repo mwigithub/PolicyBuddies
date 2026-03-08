@@ -101,7 +101,9 @@ jobs:
       #       -H "Content-Type: application/json" \
       #       -d '{"clearCache": false}'
 
-      # ── Option C: AWS ECS (target state) ─────────────────────
+      # ── Option C: AWS ECS (FUTURE — not active, do not uncomment yet) ───
+      # Only activate this when AWS infrastructure (ECS + RDS) is fully set up.
+      # See DEPLOY.md → "Migrating to AWS" for the full migration steps.
       # Requires: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION secrets
       #           ECS_CLUSTER_NAME, ECS_SERVICE_NAME, ECS_TASK_DEFINITION
       # - name: Configure AWS credentials

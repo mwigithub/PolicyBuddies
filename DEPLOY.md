@@ -141,6 +141,90 @@ API runs on **port 3000**. Frontend dev server runs on **port 3001** (`cd ui && 
 
 ---
 
+## Migrating to AWS (Future — Not Active)
+
+> **⚠️ AWS is NOT the current deployment.** Railway is active. AWS is the planned future target when scaling beyond PoC.
+>
+> **Do NOT uncomment the AWS ECS section in `.github/workflows/cd.yml` until AWS infrastructure is fully provisioned.**
+
+### What changes when moving to AWS
+
+No application code changes are needed. Only infrastructure and environment variables change.
+
+| Current (PoC) | Future (AWS) |
+|---|---|
+| Railway | ECS Fargate |
+| Supabase PostgreSQL | RDS PostgreSQL + pgvector |
+| GHCR | ECR (Elastic Container Registry) |
+| Vercel | AWS Amplify (or keep Vercel) |
+
+### Step-by-step migration
+
+#### 1. Set up RDS PostgreSQL with pgvector
+```bash
+# Connect to your new RDS instance and run:
+psql -h your-rds-endpoint -U postgres
+CREATE EXTENSION IF NOT EXISTS vector;
+\q
+
+# Apply the schema:
+DATABASE_URL=postgresql://user:pass@your-rds-endpoint:5432/policybuddies \
+DATABASE_SSL=true \
+npm run db:bootstrap
+```
+
+#### 2. Set up ECR (container registry)
+```bash
+aws ecr create-repository --repository-name policybuddies --region ap-southeast-1
+```
+
+#### 3. Update GitHub secrets — replace Railway with AWS
+
+Remove Railway secrets, add these:
+
+| Secret | Description |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | IAM user access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret |
+| `AWS_REGION` | e.g. `ap-southeast-1` |
+| `ECR_REPOSITORY` | ECR repo URI |
+| `ECS_CLUSTER_NAME` | ECS cluster name |
+| `ECS_SERVICE_NAME` | ECS service name |
+| `ECS_TASK_DEFINITION` | Task definition name |
+| `SUPABASE_DATABASE_URL` | Replace with RDS URI |
+
+#### 4. Update `.github/workflows/cd.yml`
+
+- **Comment out** the Railway deploy step (Option A)
+- **Uncomment** the AWS ECS deploy step (Option C)
+- Update the final `echo` log line accordingly
+
+#### 5. ECS task definition — required environment variables
+```json
+{
+  "DATABASE_URL": "postgresql://...",
+  "DATABASE_SSL": "true",
+  "DATABASE_POOL_MAX": "10",
+  "GEMINI_API_KEY": "...",
+  "ALLOWED_ORIGIN": "https://your-frontend-url",
+  "PORT": "3000",
+  "NODE_ENV": "production"
+}
+```
+
+Mount an EFS volume at `/app/data` if you need to persist uploaded document files.
+
+#### 6. Frontend
+- Option A: Keep Vercel — just update `NEXT_PUBLIC_API_BASE_URL` to the new ECS/ALB URL
+- Option B: Migrate to AWS Amplify — import `ui/` directory, set the same env var
+
+### When NOT to migrate yet
+- While still in PoC / early user testing phase
+- While Supabase + Railway costs are within acceptable range
+- Until you need SLA guarantees, VPC isolation, or enterprise compliance
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
