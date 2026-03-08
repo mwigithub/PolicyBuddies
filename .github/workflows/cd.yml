@@ -85,12 +85,13 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Option A: Railway ─────────────────────────────────────
-      # Requires: RAILWAY_TOKEN + RAILWAY_SERVICE_ID secrets
-      # To get RAILWAY_SERVICE_ID: Railway dashboard → your service → Settings → Service ID
+      # Requires: RAILWAY_TOKEN secret — must be a SERVICE token (not project/account token)
+      # A service token is already scoped to one service, so no --service flag is needed.
+      # To generate: Railway dashboard → your service → Settings → Service Tokens → New Token
       - name: Deploy to Railway
         run: |
           npm install -g @railway/cli@latest
-          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
+          railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
