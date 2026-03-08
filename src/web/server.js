@@ -319,7 +319,7 @@ app.post("/api/ingest", async (req, res) => {
     console.error("Ingestion error:", error);
     res.status(500).json({
       success: false,
-      error: "Ingestion failed. Check server logs for details.",
+      error: error?.message ?? "Ingestion failed. Check server logs for details.",
     });
   }
 });
