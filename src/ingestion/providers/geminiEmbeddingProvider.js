@@ -39,25 +39,10 @@ export function createGeminiEmbeddingProvider(config = {}) {
 
   async function embedBatch(texts) {
     if (texts.length === 0) return [];
-    const res = await fetch(
-      `${BASE_URL}/models/${model}:batchEmbedContents?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          requests: texts.map((text) => ({
-            model: `models/${model}`,
-            content: { parts: [{ text }] },
-          })),
-        }),
-      },
-    );
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`Gemini batchEmbedContents failed (${res.status}): ${body}`);
-    }
-    const data = await res.json();
-    return data.embeddings.map((e) => e.values); // number[][], each length 768
+    // Use parallel embedContent calls — batchEmbedContents is not supported
+    // for text-embedding-004 on all API keys. Parallel calls are equally fast
+    // for typical document chunk counts.
+    return Promise.all(texts.map((text) => embedText(text)));
   }
 
   return { name: "gemini-embedding-provider", model, embedText, embedBatch };
