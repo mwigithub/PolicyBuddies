@@ -285,8 +285,8 @@ export function createIngestionService({
         // fall back to per-chunk embedText for providers that don't support batching.
         const chunkTexts = chunks.map((chunk) => chunk.chunkText);
         const vectors = embeddingProvider.embedBatch
-          ? embeddingProvider.embedBatch(chunkTexts)
-          : chunkTexts.map((text) => embeddingProvider.embedText(text));
+          ? await embeddingProvider.embedBatch(chunkTexts)
+          : await Promise.all(chunkTexts.map((text) => embeddingProvider.embedText(text)));
 
         const vectorRecords = chunks.map((chunk, i) => ({
           vectorRecordId: generateId("VEC"),
