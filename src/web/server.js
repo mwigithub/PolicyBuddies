@@ -168,6 +168,7 @@ app.get("/api/catalog", async (_req, res) => {
         id: doc.id,
         sourcePath: doc.sourcePath,
         productName: doc.productName,
+        insurer: doc.insurer ?? doc.metadata?.insurer ?? null,
         jurisdiction: doc.jurisdiction,
         insuranceType: doc.insuranceType ?? doc.metadata?.insuranceType ?? null,
         versionLabel: doc.versionLabel,
