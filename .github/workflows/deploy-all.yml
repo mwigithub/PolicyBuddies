@@ -106,8 +106,14 @@ jobs:
     name: Post-Deploy Smoke Test
     runs-on: ubuntu-latest
     needs: deploy-api
-    if: ${{ secrets.API_BASE_URL != '' }}
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
     steps:
+      - name: Skip when API_BASE_URL is missing
+        if: ${{ env.API_BASE_URL == '' }}
+        run: echo "API_BASE_URL is not set. Skipping smoke test."
+
       - name: Health endpoint
+        if: ${{ env.API_BASE_URL != '' }}
         run: |
-          curl -fsS "${{ secrets.API_BASE_URL }}/api/health" | jq .
+          curl -fsS "${API_BASE_URL}/api/health" | jq .
