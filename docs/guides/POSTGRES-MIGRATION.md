@@ -117,6 +117,21 @@ Edit `config/runtime.json`:
 }
 ```
 
+### Local Overrides vs Production Config
+
+- Commit production-safe defaults in:
+  - `config/runtime.json`
+  - `config/llm-modules.json`
+- Keep local-only overrides in untracked files:
+  - `config/runtime.local.json`
+  - `config/llm-modules.local.json`
+
+At runtime, local overrides (if present) are merged on top of the committed config.
+Use these templates:
+
+- `config/runtime.local.example.json`
+- `config/llm-modules.local.example.json`
+
 You can switch each independently — e.g. run catalog on postgres
 while keeping the file vector store during a migration.
 

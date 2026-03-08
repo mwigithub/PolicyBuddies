@@ -1,9 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const LLM_CONFIG_PATH = resolve(
   process.cwd(),
   "config/llm-modules.json",
+);
+export const LLM_LOCAL_CONFIG_PATH = resolve(
+  process.cwd(),
+  "config/llm-modules.local.json",
 );
 
 export const DEFAULT_LLM_CONFIG = {
@@ -51,49 +55,76 @@ function ensureConfigDir() {
   mkdirSync(resolve(process.cwd(), "config"), { recursive: true });
 }
 
+function readJson(path) {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 export function loadLlmConfig() {
   ensureConfigDir();
+  const parsed = readJson(LLM_CONFIG_PATH);
+  if (!parsed) {
+    saveLlmConfig(DEFAULT_LLM_CONFIG);
+    return { ...DEFAULT_LLM_CONFIG };
+  }
+  const localOverride = readJson(LLM_LOCAL_CONFIG_PATH) ?? {};
+  const merged = {
+    ...parsed,
+    ...localOverride,
+  };
+
   try {
-    const content = readFileSync(LLM_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(content);
     return {
       ...DEFAULT_LLM_CONFIG,
-      ...parsed,
+      ...merged,
       sourceIngestion: {
         ...DEFAULT_LLM_CONFIG.sourceIngestion,
         ...(parsed.sourceIngestion ?? {}),
+        ...(localOverride.sourceIngestion ?? {}),
       },
       conversation: {
         ...DEFAULT_LLM_CONFIG.conversation,
         ...(parsed.conversation ?? {}),
+        ...(localOverride.conversation ?? {}),
       },
       conversationLlm: {
         ...DEFAULT_LLM_CONFIG.conversationLlm,
         ...(parsed.conversationLlm ?? {}),
+        ...(localOverride.conversationLlm ?? {}),
       },
       intentRouting: {
         ...DEFAULT_LLM_CONFIG.intentRouting,
         ...(parsed.intentRouting ?? {}),
+        ...(localOverride.intentRouting ?? {}),
       },
       queryPlannerLlm: {
         ...DEFAULT_LLM_CONFIG.queryPlannerLlm,
         ...(parsed.queryPlannerLlm ?? {}),
+        ...(localOverride.queryPlannerLlm ?? {}),
       },
       checkerLlm: {
         ...DEFAULT_LLM_CONFIG.checkerLlm,
         ...(parsed.checkerLlm ?? {}),
+        ...(localOverride.checkerLlm ?? {}),
       },
       confidenceReview: {
         ...DEFAULT_LLM_CONFIG.confidenceReview,
         ...(parsed.confidenceReview ?? {}),
+        ...(localOverride.confidenceReview ?? {}),
       },
       embedding: {
         ...DEFAULT_LLM_CONFIG.embedding,
         ...(parsed.embedding ?? {}),
+        ...(localOverride.embedding ?? {}),
       },
     };
   } catch {
-    saveLlmConfig(DEFAULT_LLM_CONFIG);
     return { ...DEFAULT_LLM_CONFIG };
   }
 }

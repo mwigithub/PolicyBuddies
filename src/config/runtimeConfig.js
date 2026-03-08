@@ -1,7 +1,11 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const RUNTIME_CONFIG_PATH = resolve(process.cwd(), "config/runtime.json");
+export const RUNTIME_LOCAL_CONFIG_PATH = resolve(
+  process.cwd(),
+  "config/runtime.local.json",
+);
 
 export const DEFAULT_RUNTIME_CONFIG = {
   pipelineVersion: "mvp-ingestion-v1",
@@ -55,6 +59,17 @@ function ensureConfigDir() {
   mkdirSync(resolve(process.cwd(), "config"), { recursive: true });
 }
 
+function readJson(path) {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 export function saveRuntimeConfig(config) {
   ensureConfigDir();
   writeFileSync(RUNTIME_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -62,40 +77,53 @@ export function saveRuntimeConfig(config) {
 
 export function loadRuntimeConfig() {
   ensureConfigDir();
-  try {
-    const content = readFileSync(RUNTIME_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(content);
+  const parsed = readJson(RUNTIME_CONFIG_PATH);
+  if (!parsed) {
+    saveRuntimeConfig(DEFAULT_RUNTIME_CONFIG);
+    return { ...DEFAULT_RUNTIME_CONFIG };
+  }
+  const localOverride = readJson(RUNTIME_LOCAL_CONFIG_PATH) ?? {};
+  const merged = {
+    ...parsed,
+    ...localOverride,
+  };
 
+  try {
     return {
       ...DEFAULT_RUNTIME_CONFIG,
-      ...parsed,
+      ...merged,
       vectorStore: {
         ...DEFAULT_RUNTIME_CONFIG.vectorStore,
         ...(parsed.vectorStore ?? {}),
+        ...(localOverride.vectorStore ?? {}),
       },
       catalog: {
         ...DEFAULT_RUNTIME_CONFIG.catalog,
         ...(parsed.catalog ?? {}),
+        ...(localOverride.catalog ?? {}),
       },
       planner: {
         ...DEFAULT_RUNTIME_CONFIG.planner,
         ...(parsed.planner ?? {}),
+        ...(localOverride.planner ?? {}),
       },
       agenticOrchestration: {
         ...DEFAULT_RUNTIME_CONFIG.agenticOrchestration,
         ...(parsed.agenticOrchestration ?? {}),
+        ...(localOverride.agenticOrchestration ?? {}),
       },
       demoIngestion: {
         ...DEFAULT_RUNTIME_CONFIG.demoIngestion,
         ...(parsed.demoIngestion ?? {}),
+        ...(localOverride.demoIngestion ?? {}),
         metadata: {
           ...DEFAULT_RUNTIME_CONFIG.demoIngestion.metadata,
           ...(parsed.demoIngestion?.metadata ?? {}),
+          ...(localOverride.demoIngestion?.metadata ?? {}),
         },
       },
     };
   } catch {
-    saveRuntimeConfig(DEFAULT_RUNTIME_CONFIG);
     return { ...DEFAULT_RUNTIME_CONFIG };
   }
 }

@@ -1,0 +1,11 @@
+{
+  "vectorStore": {
+    "provider": "file"
+  },
+  "catalog": {
+    "provider": "file"
+  },
+  "planner": {
+    "strictRouting": false
+  }
+}
