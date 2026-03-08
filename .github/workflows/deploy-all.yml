@@ -19,7 +19,9 @@ jobs:
         run: |
           [ -n "${{ secrets.SUPABASE_DATABASE_URL }}" ] || (echo "Missing secret: SUPABASE_DATABASE_URL" && exit 1)
           [ -n "${{ secrets.RAILWAY_TOKEN }}" ] || (echo "Missing secret: RAILWAY_TOKEN" && exit 1)
-          [ -n "${{ secrets.API_BASE_URL }}" ] || (echo "Missing secret: API_BASE_URL (for smoke check)" && exit 1)
+          if [ -z "${{ secrets.API_BASE_URL }}" ]; then
+            echo "API_BASE_URL is not set. Deploy will continue; smoke test will be skipped."
+          fi
 
   migrate-supabase:
     name: Migrate Supabase
@@ -104,6 +106,7 @@ jobs:
     name: Post-Deploy Smoke Test
     runs-on: ubuntu-latest
     needs: deploy-api
+    if: ${{ secrets.API_BASE_URL != '' }}
     steps:
       - name: Health endpoint
         run: |
