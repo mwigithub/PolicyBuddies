@@ -37,12 +37,18 @@ export function createFileIngestionCatalog({ catalogPath }) {
     },
 
     listEntries() {
-      return readCatalog(absolutePath).entries.map((entry) => ({
-        // Ensure every entry has the fields questionService expects
-        status: "completed",
-        ingestedAt: entry.ingestedAt ?? entry.indexedAt ?? nowIso(),
-        ...entry,
-      }));
+      return readCatalog(absolutePath).entries.map((entry) => {
+        const metadata = entry.metadata ?? {};
+        return {
+          // Ensure every entry has the fields questionService expects
+          status: "completed",
+          ingestedAt: entry.ingestedAt ?? entry.indexedAt ?? nowIso(),
+          insuranceType: entry.insuranceType ?? metadata.insuranceType ?? null,
+          insurer: entry.insurer ?? metadata.insurer ?? null,
+          planName: entry.planName ?? metadata.planName ?? null,
+          ...entry,
+        };
+      });
     },
 
     // Alias used by server.js — identical to listEntries for the file provider
@@ -69,6 +75,12 @@ export function createFileIngestionCatalog({ catalogPath }) {
         ...entry,
         ingestedAt: entry.ingestedAt ?? entry.indexedAt ?? now,
       });
+      writeCatalog(absolutePath, payload);
+    },
+
+    removeEntry(id) {
+      const payload = readCatalog(absolutePath);
+      payload.entries = payload.entries.filter((e) => e.id !== id);
       writeCatalog(absolutePath, payload);
     },
   };

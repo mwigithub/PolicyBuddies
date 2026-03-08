@@ -12,11 +12,14 @@
       "whenAnyRegex": [
         "basic plan",
         "plan name",
-        "name of (the )?plan"
+        "name of (the )?plan",
+        "plan for"
       ],
       "preferredDocumentTypes": [
         "product illustration",
-        "product summary"
+        "product summary",
+        "product brochure",
+        "brochure"
       ],
       "preferredChunkKinds": [
         "metadata",

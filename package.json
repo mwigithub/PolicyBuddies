@@ -13,7 +13,9 @@
     "tui:ingestion": "node src/terminal/ingestionUi.js",
     "tui:ask": "node src/terminal/askUi.js",
     "vectors:prune": "node scripts/prune_orphan_vectors.mjs",
-    "eval:ask": "node scripts/eval_ask_harness.mjs"
+    "eval:ask": "node scripts/eval_ask_harness.mjs",
+    "ui": "cd ui && npm run dev -- --port 3001",
+    "ui:build": "cd ui && npm run build"
   },
   "dependencies": {
     "express": "^4.18.2",

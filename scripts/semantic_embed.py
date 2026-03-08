@@ -43,19 +43,22 @@ def main():
     model = SentenceTransformer(args.model)
 
     if args.mode == "embed-batch":
-        if not args.texts:
-            print(json.dumps({"ok": False, "error": "missing --texts"}))
-            sys.exit(1)
-        texts = json.loads(args.texts)
+        # Read texts from stdin (preferred — avoids E2BIG) or fall back to --texts arg
+        if args.texts:
+            texts = json.loads(args.texts)
+        else:
+            texts = json.loads(sys.stdin.read())
         embeddings = model.encode(texts, convert_to_numpy=True).tolist()
         print(json.dumps({"ok": True, "embeddings": embeddings, "dims": len(embeddings[0]) if embeddings else 0}))
 
     elif args.mode == "rerank":
-        if not args.question or not args.chunks:
-            print(json.dumps({"ok": False, "error": "missing --question or --chunks"}))
-            sys.exit(1)
-        question = args.question
-        chunks = json.loads(args.chunks)
+        if args.question and args.chunks:
+            question = args.question
+            chunks = json.loads(args.chunks)
+        else:
+            payload = json.loads(sys.stdin.read())
+            question = payload["question"]
+            chunks = payload["chunks"]
         if not chunks:
             print(json.dumps({"ok": True, "scores": []}))
             return

@@ -4,7 +4,7 @@
 # ================================================================
 
 .PHONY: help dev db db-stop db-reset build up down logs ps health \
-        ingest ask shell-db
+        ingest ask shell-db ui
 
 # Default target
 help:
@@ -93,3 +93,9 @@ health:
 # Open psql in the postgres container
 shell-db:
 	docker exec -it policybuddies-pg psql -U postgres -d policybuddies
+
+# ── Frontend ───────────────────────────────────────────────────
+
+# Start Next.js UI (requires API running on port 3000)
+ui:
+	cd ui && npm run dev -- --port 3001

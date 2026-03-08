@@ -650,9 +650,9 @@ export function buildBusinessMetadata({
     insurerName: null,
     jurisdiction: normalizeString(metadata.jurisdiction),
     currency: detectedCurrency,
-      productLevel: {
-        planName: detectedPlanName,
-      productCategory: unknownValue,
+    productLevel: {
+      planName: detectedPlanName,
+      productCategory: normalizeString(metadata.insuranceType) ?? unknownValue,
       planType: unknownValue,
       premiumType: unknownValue,
       premiumPaymentTerm: null,

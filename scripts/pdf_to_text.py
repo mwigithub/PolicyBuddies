@@ -31,7 +31,10 @@ def table_to_markdown(rows):
 
 
 def extract_with_pymupdf(path):
-    import fitz  # type: ignore
+    try:
+        import pymupdf as fitz  # pymupdf >= 1.24 — no stdout warnings  # type: ignore
+    except ImportError:
+        import fitz  # type: ignore  # fallback for older installs
 
     doc = fitz.open(path)
     pages_text = []

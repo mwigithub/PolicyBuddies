@@ -1,0 +1,110 @@
+{
+  "_meta": {
+    "name": "insurance-regex-metadata",
+    "version": "0.1.0",
+    "lastUpdated": "2026-03-08",
+    "status": "starter-seed",
+    "notes": [
+      "This is a starter regex catalog for insurance intent/routing and extraction.",
+      "Patterns are intentionally conservative to reduce false positives.",
+      "Expand with product/jurisdiction-specific patterns over time."
+    ],
+    "sources": [
+      "https://content.naic.org/index.php/glossary-insurance-terms",
+      "https://www.lia.org.sg/tools-and-resources/insurance-terms/",
+      "https://www.moneysense.gov.sg/insurance/",
+      "https://www.moneysense.gov.sg/insurance-basics/",
+      "https://www.apra.gov.au/glossary",
+      "https://www.apra.gov.au/a-new-centralised-glossary-for-apra%E2%80%99s-prudential-framework",
+      "internal: config/product-relevance-taxonomy.json"
+    ]
+  },
+  "regexCatalog": {
+    "productTypes": [
+      { "id": "pt_term_life", "label": "Term Life", "regex": "\\bterm\\s+life|term\\s+insurance|level\\s+term|decreasing\\s+term\\b" },
+      { "id": "pt_whole_life", "label": "Whole Life", "regex": "\\bwhole\\s+life\\b" },
+      { "id": "pt_endowment", "label": "Endowment", "regex": "\\bendowment\\b" },
+      { "id": "pt_ilp", "label": "Investment-Linked", "regex": "\\binvestment[-\\s]?linked\\s+(?:policy|plan|insurance)|\\bILP\\b" },
+      { "id": "pt_universal_life", "label": "Universal Life", "regex": "\\buniversal\\s+life|indexed\\s+universal\\s+life|\\bIUL\\b" },
+      { "id": "pt_personal_accident", "label": "Personal Accident", "regex": "\\bpersonal\\s+accident|\\bPA\\s*\\(?personal\\s+accident\\)?\\b|accident\\s+plan\\b" },
+      { "id": "pt_critical_illness", "label": "Critical Illness", "regex": "\\bcritical\\s+illness(?:es)?|\\bCI\\b" },
+      { "id": "pt_disability_income", "label": "Disability Income", "regex": "\\bdisability\\s+income|income\\s+protection|\\bDI\\b" },
+      { "id": "pt_annuity", "label": "Annuity", "regex": "\\bannuit(?:y|ies)|deferred\\s+annuity|immediate\\s+annuity\\b" },
+      { "id": "pt_health", "label": "Health", "regex": "\\bhealth\\s+insurance|medical\\s+insurance|hospitalisation\\b" }
+    ],
+    "benefits": [
+      { "id": "bnf_sum_assured", "label": "Sum Assured", "regex": "\\bsum\\s+assured|basic\\s+sum\\s+assured|sum\\s+insured\\b" },
+      { "id": "bnf_death", "label": "Death Benefit", "regex": "\\bdeath\\s+benefit\\b" },
+      { "id": "bnf_maturity", "label": "Maturity Benefit", "regex": "\\bmaturity\\s+benefit|maturity\\s+value|maturity\\s+payout\\b" },
+      { "id": "bnf_cash_value", "label": "Cash Value", "regex": "\\bcash\\s+value\\b" },
+      { "id": "bnf_surrender_value", "label": "Surrender Value", "regex": "\\bsurrender\\s+value\\b" },
+      { "id": "bnf_policy_loan", "label": "Policy Loan", "regex": "\\bpolicy\\s+loan\\b" },
+      { "id": "bnf_paid_up", "label": "Paid-Up Value", "regex": "\\bpaid[-\\s]?up\\s+value\\b" },
+      { "id": "bnf_accidental_death", "label": "Accidental Death Benefit", "regex": "\\baccidental\\s+death\\s+benefit\\b" },
+      { "id": "bnf_retrenchment", "label": "Retrenchment Benefit", "regex": "\\bretrenchment\\s+benefit\\b" },
+      { "id": "bnf_monthly_benefit", "label": "Monthly Benefit", "regex": "\\bmonthly\\s+benefit\\b" }
+    ],
+    "chargesAndFees": [
+      { "id": "chg_surrender", "label": "Surrender Charge", "regex": "\\bsurrender\\s+charge|early\\s+termination\\s+charge\\b" },
+      { "id": "chg_admin", "label": "Administration Charge", "regex": "\\badministration\\s+charge|policy\\s+fee\\b" },
+      { "id": "chg_mortality", "label": "Mortality Charge", "regex": "\\bmortality\\s+charge|cost\\s+of\\s+insurance|\\bCOI\\b" },
+      { "id": "chg_fund_mgmt", "label": "Fund Management Charge", "regex": "\\bfund\\s+management\\s+charge|management\\s+fee\\b" },
+      { "id": "chg_allocation_rate", "label": "Premium Allocation Rate", "regex": "\\bpremium\\s+allocation\\s+rate\\b" },
+      { "id": "chg_spread", "label": "Bid-Offer Spread", "regex": "\\bbid[-\\s]?offer\\s+spread|offer\\s+price|bid\\s+price\\b" },
+      { "id": "chg_shortfall", "label": "Premium Shortfall Charge", "regex": "\\bpremium\\s+shortfall\\s+charge\\b" }
+    ],
+    "claimsAndEligibility": [
+      { "id": "clm_exclusion", "label": "Exclusion", "regex": "\\bexclusions?|not\\s+covered\\b" },
+      { "id": "clm_waiting_period", "label": "Waiting Period", "regex": "\\bwaiting\\s+period\\b" },
+      { "id": "clm_survival_period", "label": "Survival Period", "regex": "\\bsurvival\\s+period\\b" },
+      { "id": "clm_elimination_period", "label": "Elimination/Deferred Period", "regex": "\\belimination\\s+period|deferred\\s+period|deferment\\s+period\\b" },
+      { "id": "clm_own_occupation", "label": "Own Occupation", "regex": "\\bown[-\\s]?occupation\\b" },
+      { "id": "clm_any_occupation", "label": "Any Occupation", "regex": "\\bany[-\\s]?occupation\\b" },
+      { "id": "clm_submission", "label": "Claim Submission", "regex": "\\bclaim\\s+submission|how\\s+to\\s+claim|file\\s+a\\s+claim\\b" },
+      { "id": "clm_documents", "label": "Claim Documents", "regex": "\\bclaim\\s+documents?|supporting\\s+documents?\\b" },
+      { "id": "clm_pre_existing", "label": "Pre-existing Condition", "regex": "\\bpre[-\\s]?existing\\s+condition\\b" },
+      { "id": "clm_coverage_term", "label": "Coverage Term", "regex": "\\bcoverage\\s+term|policy\\s+term\\b" }
+    ],
+    "policyLifecycle": [
+      { "id": "lifecycle_free_look", "label": "Free Look", "regex": "\\bfree[-\\s]?look\\s+period\\b" },
+      { "id": "lifecycle_grace", "label": "Grace Period", "regex": "\\bgrace\\s+period\\b" },
+      { "id": "lifecycle_reinstatement", "label": "Reinstatement", "regex": "\\breinstatement\\b" },
+      { "id": "lifecycle_lapse", "label": "Lapse", "regex": "\\blapse|policy\\s+lapse\\b" },
+      { "id": "lifecycle_renewal", "label": "Renewal", "regex": "\\brenewal|yearly\\s+renewable\\b" },
+      { "id": "lifecycle_nomination", "label": "Nomination", "regex": "\\bnomination|beneficiar(?:y|ies)\\b" },
+      { "id": "lifecycle_assignment", "label": "Assignment", "regex": "\\bassignment\\b" },
+      { "id": "lifecycle_rider", "label": "Rider", "regex": "\\brider\\b" },
+      { "id": "lifecycle_waiver", "label": "Waiver of Premium", "regex": "\\bwaiver\\s+of\\s+premium\\b" },
+      { "id": "lifecycle_tpd", "label": "TPD", "regex": "\\btotal\\s+and\\s+permanent\\s+disability|\\bTPD\\b" }
+    ],
+    "projectionsAndPar": [
+      { "id": "proj_illustration", "label": "Policy Illustration", "regex": "\\bpolicy\\s+illustration|illustrated\\s+rates?\\b" },
+      { "id": "proj_projection_rate", "label": "Projection Rate", "regex": "\\bprojection\\s+rate|illustrated\\s+rate|4(?:\\.\\d+)?%|8(?:\\.\\d+)?%|4\\.25%|3\\.00%\\b" },
+      { "id": "proj_participating", "label": "Participating Fund", "regex": "\\bparticipating\\s+fund|\\bpar\\s+fund|participating\\s+policy\\b" },
+      { "id": "proj_non_guaranteed", "label": "Non-guaranteed", "regex": "\\bnon[-\\s]?guaranteed\\s+(?:benefits?|value|policy\\s+value|surrender\\s+value)\\b" },
+      { "id": "proj_bonus_reversionary", "label": "Reversionary Bonus", "regex": "\\breversionary\\s+bonus\\b" },
+      { "id": "proj_bonus_terminal", "label": "Terminal Bonus", "regex": "\\bterminal\\s+bonus\\b" },
+      { "id": "proj_bonus_loyalty", "label": "Loyalty Bonus", "regex": "\\bloyalty\\s+bonus\\b" },
+      { "id": "proj_dividend", "label": "Dividend", "regex": "\\bdividend(?:s)?\\b" },
+      { "id": "proj_crediting_rate", "label": "Crediting Rate", "regex": "\\bcrediting\\s+rate|declared\\s+rate|cap\\s+rate|floor\\s+rate\\b" },
+      { "id": "proj_sub_funds", "label": "Investment Sub-funds", "regex": "\\bsub[-\\s]?funds?|fund\\s+switch(?:ing)?|\\bNAV\\b\\b" }
+    ],
+    "regexUtilities": [
+      {
+        "id": "util_currency_amount",
+        "label": "Currency + Amount",
+        "regex": "\\b(?:SGD|USD|AUD|GBP|EUR|RM|S\\$|US\\$)\\s?\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?\\b"
+      },
+      {
+        "id": "util_percentage",
+        "label": "Percentage",
+        "regex": "\\b\\d{1,2}(?:\\.\\d+)?%\\b"
+      },
+      {
+        "id": "util_policy_year",
+        "label": "Policy Year",
+        "regex": "\\bpolicy\\s+year\\s*\\d{1,2}|\\b\\d{1,2}(?:st|nd|rd|th)\\s+year\\b"
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { sha256 } from "../utils.js";
 
@@ -8,15 +8,22 @@ function looksLikePdf({ sourceUri, mimeType }) {
     extname(sourceUri).toLowerCase() === ".pdf";
 }
 
+function getPythonBin() {
+  const venvPython = resolve(process.cwd(), ".venv/bin/python3");
+  return existsSync(venvPython) ? venvPython : "python3";
+}
+
 function extractTextWithPython(sourcePath) {
   try {
     const scriptPath = resolve(process.cwd(), "scripts/pdf_to_text.py");
-    const stdout = execFileSync("python3", [scriptPath, sourcePath], {
+    const stdout = execFileSync(getPythonBin(), [scriptPath, sourcePath], {
       encoding: "utf8",
       maxBuffer: 20 * 1024 * 1024,
       timeout: 60_000,
     });
-    const parsed = JSON.parse(stdout);
+    // PyMuPDF may print non-JSON warnings before the JSON line — take the last non-empty line
+    const lines = stdout.split("\n").filter((l) => l.trim());
+    const parsed = JSON.parse(lines[lines.length - 1]);
     if (!parsed.ok) {
       return {
         ok: false,

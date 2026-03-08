@@ -4,6 +4,9 @@ import {
   collectLexiconMatches,
   normalizeQuestionWithLexicon,
 } from "./intentLexiconRuntime.js";
+import { createInsuranceRegexMatcher } from "../config/insuranceRegexConfig.js";
+
+const insuranceRegexMatcher = createInsuranceRegexMatcher();
 
 function safeReadJson(filePath) {
   try {
@@ -24,10 +27,21 @@ function detectIntent(question, lexicon = null) {
   ) {
     return "comparison";
   }
-  if (/\bbasic plan|plan name|name of (the )?plan\b/.test(text)) {
+  if (/\bbasic plan|plan name|name of (the )?plan|plan for\b/.test(text)) {
     return "structured_lookup";
   }
   if (hasInsuranceSignal) {
+    return "structured_lookup";
+  }
+  if (
+    insuranceRegexMatcher.hasMatchInAnyCategory(text, [
+      "productTypes",
+      "benefits",
+      "chargesAndFees",
+      "claimsAndEligibility",
+      "policyLifecycle",
+    ])
+  ) {
     return "structured_lookup";
   }
   if (
@@ -61,6 +75,14 @@ function detectIntent(question, lexicon = null) {
   if (
     /\b(loyalty|performance|power[- ]?up|initial)\s+bonus\b/.test(text) &&
     /\bcompute|calculate|formula|amount|value\b/.test(text)
+  ) {
+    return "calculation";
+  }
+  if (
+    insuranceRegexMatcher.hasMatchInAnyCategory(text, ["projectionsAndPar"]) &&
+    /\bcalculate|compute|formula|projection|projected|simulate|illustrated|rate|%|bonus\b/.test(
+      text,
+    )
   ) {
     return "calculation";
   }

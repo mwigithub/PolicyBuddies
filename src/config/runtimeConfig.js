@@ -42,6 +42,7 @@ export const DEFAULT_RUNTIME_CONFIG = {
     metadata: {
       productName: "Sample Product",
       jurisdiction: "SG",
+      insuranceType: "investment-linked",
       versionLabel: "v1",
       documentType: "product summary",
     },

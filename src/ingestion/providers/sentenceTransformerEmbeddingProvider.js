@@ -4,14 +4,16 @@ import { resolve } from "node:path";
 const SCRIPT_PATH = resolve(process.cwd(), "scripts/semantic_embed.py");
 const PYTHON_BIN = resolve(process.cwd(), ".venv/bin/python3");
 
-function runScript(args, timeoutMs = 60000) {
-  const stdout = execFileSync(PYTHON_BIN, [SCRIPT_PATH, ...args], {
+// Pass large payloads via stdin to avoid E2BIG (arg list too long) on big documents
+function runScript(modeArgs, stdinData, timeoutMs = 120000) {
+  const stdout = execFileSync(PYTHON_BIN, [SCRIPT_PATH, ...modeArgs], {
     encoding: "utf8",
     maxBuffer: 50 * 1024 * 1024,
     timeout: timeoutMs,
-    stdio: ["ignore", "pipe", "pipe"],
+    input: stdinData,
   });
-  const result = JSON.parse(stdout.trim());
+  const lines = stdout.split("\n").filter((l) => l.trim());
+  const result = JSON.parse(lines[lines.length - 1]);
   if (!result.ok) {
     throw new Error(`semantic_embed.py error: ${result.error}`);
   }
@@ -25,26 +27,14 @@ export function createSentenceTransformerEmbeddingProvider(config = {}) {
     name: "sentence-transformer-embedding-provider",
     model,
 
-    // Embed a single text — used as fallback by ingestionService if embedBatch not called
     embedText(text) {
-      const result = runScript([
-        "embed-batch",
-        "--texts", JSON.stringify([text]),
-        "--model", model,
-      ]);
+      const result = runScript(["embed-batch", "--model", model], JSON.stringify([text]));
       return result.embeddings[0];
     },
 
-    // Embed all texts in a single Python call — much faster for ingestion
     embedBatch(texts) {
-      if (texts.length === 0) {
-        return [];
-      }
-      const result = runScript([
-        "embed-batch",
-        "--texts", JSON.stringify(texts),
-        "--model", model,
-      ]);
+      if (texts.length === 0) return [];
+      const result = runScript(["embed-batch", "--model", model], JSON.stringify(texts));
       return result.embeddings;
     },
   };

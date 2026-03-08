@@ -6,6 +6,57 @@ import {
   sha256,
 } from "./utils.js";
 import { extname } from "node:path";
+import { createInsuranceRegexMatcher } from "../config/insuranceRegexConfig.js";
+
+const insuranceRegexMatcher = createInsuranceRegexMatcher();
+const CHUNK_REGEX_CATEGORIES = [
+  "productTypes",
+  "benefits",
+  "chargesAndFees",
+  "claimsAndEligibility",
+  "policyLifecycle",
+  "projectionsAndPar",
+];
+
+function tagChunkWithInsuranceRegex(chunkText) {
+  const matchResult = insuranceRegexMatcher.matchAll(
+    chunkText,
+    CHUNK_REGEX_CATEGORIES,
+  );
+  return {
+    categories: matchResult.matchedCategories,
+    ids: matchResult.matchedIds,
+    byCategory: matchResult.byCategory,
+  };
+}
+
+function summarizeChunkRegexTags(chunks = []) {
+  const categoryCounts = {};
+  const idCounts = {};
+  let matchedChunkCount = 0;
+
+  for (const chunk of chunks) {
+    const tags = chunk?.regexTags ?? tagChunkWithInsuranceRegex(chunk?.chunkText ?? "");
+    if (!tags || !Array.isArray(tags.categories) || tags.categories.length === 0) {
+      continue;
+    }
+    matchedChunkCount += 1;
+
+    for (const category of tags.categories) {
+      categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+    }
+    for (const id of tags.ids ?? []) {
+      idCounts[id] = (idCounts[id] ?? 0) + 1;
+    }
+  }
+
+  return {
+    matchedChunkCount,
+    categories: Object.keys(categoryCounts).sort(),
+    categoryCounts,
+    idCounts,
+  };
+}
 
 function createRun({ actorId, provider, pipelineVersion }) {
   return {
@@ -84,12 +135,13 @@ export function createIngestionService({
           const existingChunks = documentRepository.listChunks(
             existingVersion.documentVersionId,
           );
+          const regexTagSummary = summarizeChunkRegexTags(existingChunks);
           const chunkTokenCounts = existingChunks.map((chunk) => chunk.tokenEstimate);
           const normalizedDocument = documentRepository.getNormalizedDocument(
             existingVersion.documentVersionId,
           );
           const chunkingMode = existingChunks[0]?.chunkingMode ??
-            (isPdfSource({ sourceUri, mimeType }) ? "token" : "line");
+            (isPdfSource({ sourceUri, mimeType }) ? "section" : "line");
           emitAudit("idempotent_reused", {
             documentVersionId: existingVersion.documentVersionId,
             sourceHash,
@@ -105,9 +157,11 @@ export function createIngestionService({
             sourceHash,
             documentVersionId: existingVersion.documentVersionId,
             chunkCount: existingChunks.length,
+            vectorCount: existingChunks.length,
             chunkingMode,
             minChunkTokens: chunkTokenCounts.length > 0 ? Math.min(...chunkTokenCounts) : 0,
             maxChunkTokens: chunkTokenCounts.length > 0 ? Math.max(...chunkTokenCounts) : 0,
+            regexTagSummary,
             extractedTextPath:
               normalizedDocument?.normalizationMetadata?.extractedTextPath ?? null,
             extractionStatus:
@@ -184,13 +238,13 @@ export function createIngestionService({
         };
         documentRepository.saveNormalizedDocument(normalizedDocument);
 
-        const chunkingMode = isPdfSource({ sourceUri, mimeType }) ? "token" : "line";
+        const chunkingMode = isPdfSource({ sourceUri, mimeType }) ? "section" : "line";
         const chunks = chunkText(
           normalized.normalizedText,
-          chunkingMode === "token"
+          chunkingMode === "section"
             ? {
-              mode: "token",
-              minTokens: 500,
+              mode: "section",
+              minTokens: 200,
               targetTokens: 650,
               maxTokens: 800,
               overlapTokens: 120,
@@ -208,10 +262,12 @@ export function createIngestionService({
             chunkText: chunkValue,
             chunkHash: sha256(chunkValue),
             tokenEstimate: chunkValue.split(/\s+/).filter(Boolean).length,
+            regexTags: tagChunkWithInsuranceRegex(chunkValue),
             chunkingMode,
             createdAt: nowIso(),
           }),
         );
+        const regexTagSummary = summarizeChunkRegexTags(chunks);
         const chunkTokenCounts = chunks.map((chunk) => chunk.tokenEstimate);
         const chunkStats = {
           chunkCount: chunks.length,
@@ -222,6 +278,8 @@ export function createIngestionService({
         documentRepository.saveChunks(chunks);
         report("chunked", chunkStats);
         emitAudit("chunked", chunkStats);
+        report("regex_tagged", regexTagSummary);
+        emitAudit("regex_tagged", regexTagSummary);
 
         // Use embedBatch when available (single subprocess call) for performance;
         // fall back to per-chunk embedText for providers that don't support batching.
@@ -262,9 +320,11 @@ export function createIngestionService({
           sourceHash,
           documentVersionId: documentVersion.documentVersionId,
           chunkCount: chunks.length,
+          vectorCount: vectorRecords.length,
           chunkingMode,
           minChunkTokens: chunkStats.minChunkTokens,
           maxChunkTokens: chunkStats.maxChunkTokens,
+          regexTagSummary,
           extractedTextPath:
             normalized.normalizedMetadata?.extractedTextPath ?? null,
           extractionStatus:

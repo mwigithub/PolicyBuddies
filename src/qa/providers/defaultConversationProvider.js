@@ -713,7 +713,7 @@ function synthesizePremiumPaidAnswer(question, evidence) {
 }
 
 function synthesizePlanNameAnswer(question, evidence) {
-  const isPlanNameQuestion = /\bbasic plan|plan name|name of (the )?plan\b/i.test(
+  const isPlanNameQuestion = /\bbasic plan|plan name|name of (the )?plan|plan for\b/i.test(
     String(question ?? ""),
   );
   if (!isPlanNameQuestion) {
@@ -724,6 +724,15 @@ function synthesizePlanNameAnswer(question, evidence) {
     const lines = String(item.text ?? "").split("\n");
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
+      const linePlanMatch = line.match(
+        /^\s*([A-Z][A-Za-z0-9 ()/&-]{2,80}?)\s+is\s+(?:a|an)\b[\s\S]*\bplan\b/i,
+      );
+      if (linePlanMatch) {
+        const candidate = linePlanMatch[1].trim();
+        if (!/^(the|this|it)$/i.test(candidate)) {
+          return `Direct Answer: Plan is ${candidate}.`;
+        }
+      }
       const metadataMatch = line.match(/^\s*Plan Name\s*:\s*(.+)\s*$/i);
       if (metadataMatch) {
         return `Direct Answer: Basic plan is ${metadataMatch[1].trim()}.`;

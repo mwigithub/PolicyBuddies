@@ -1,0 +1,24 @@
+{
+  "insurers": [
+    { "label": "Tokio Marine Life", "value": "tokio-marine-life" },
+    { "label": "AIA", "value": "aia" },
+    { "label": "Prudential", "value": "prudential" },
+    { "label": "Great Eastern", "value": "great-eastern" }
+  ],
+  "jurisdictions": ["SG", "MY", "AU", "US", "GB", "Other"],
+  "insuranceTypes": [
+    { "label": "Investment-Linked", "value": "investment-linked" },
+    { "label": "Term Life", "value": "term-life" },
+    { "label": "Whole Life", "value": "whole-life" },
+    { "label": "Endowment", "value": "endowment" },
+    { "label": "Annuity", "value": "annuity" },
+    { "label": "Health", "value": "health" }
+  ],
+  "documentTypes": [
+    { "label": "Product Summary", "value": "product-summary" },
+    { "label": "Policy Illustration", "value": "policy-illustration" },
+    { "label": "Policy Wording", "value": "policy-wording" },
+    { "label": "Benefit Schedule", "value": "benefit-schedule" },
+    { "label": "Brochure", "value": "brochure" }
+  ]
+}

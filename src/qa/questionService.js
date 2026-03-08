@@ -1,12 +1,14 @@
 import { extname, resolve } from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   collectLexiconMatches,
   normalizeQuestionWithLexicon,
 } from "./intentLexiconRuntime.js";
 import { buildQueryChunks, WEALTH_PRO_PROFILE_ID } from "../chunking/index.js";
+import { createInsuranceRegexMatcher } from "../config/insuranceRegexConfig.js";
 
 const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".text", ".csv"]);
+const insuranceRegexMatcher = createInsuranceRegexMatcher();
 const TABLE_INTENT_TOKENS = new Set([
   "table",
   "row",
@@ -42,6 +44,29 @@ function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function canonicalDocumentType(value) {
+  const text = normalize(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return "";
+  }
+  if (text.includes("summary")) {
+    return "summary";
+  }
+  if (text.includes("illustration")) {
+    return "illustration";
+  }
+  if (text.includes("brochure")) {
+    return "brochure";
+  }
+  if (text.includes("wording")) {
+    return "wording";
+  }
+  if (text.includes("benefit schedule")) {
+    return "benefit schedule";
+  }
+  return text;
+}
+
 function normalizeToken(token) {
   let stem;
   if (token.length > 5 && token.endsWith("ing")) {
@@ -64,6 +89,44 @@ function tokenize(text) {
     .filter((token) => token.length >= 2)
     .map(normalizeToken)
     .filter((token) => token.length >= 2);
+}
+
+function computeEntryAffinityBoost(question, entry) {
+  const normalizedQuestion = normalize(question);
+  const productName = normalize(entry?.productName ?? "");
+  const sourcePath = normalize(entry?.sourcePath ?? "");
+  if (!normalizedQuestion || !productName) {
+    return 0;
+  }
+
+  if (normalizedQuestion.includes(productName)) {
+    return 0.55;
+  }
+
+  const stop = new Set(["plan", "product", "policy", "tm"]);
+  const productTokens = tokenize(productName).filter(
+    (token) => token.length >= 3 && !stop.has(token),
+  );
+  if (productTokens.length === 0) {
+    return 0;
+  }
+
+  const matched = productTokens.filter((token) =>
+    normalizedQuestion.includes(token),
+  ).length;
+  if (matched === 0) {
+    return 0;
+  }
+  if (matched === productTokens.length && matched >= 2) {
+    return 0.45;
+  }
+  if (matched >= 2) {
+    return 0.35;
+  }
+  if (sourcePath && productTokens.some((token) => sourcePath.includes(token))) {
+    return 0.2;
+  }
+  return 0.15;
 }
 
 function hasTableIntent(questionTokens, question) {
@@ -101,22 +164,38 @@ function detectScopeHint(question) {
 }
 
 function detectRoutingHints(questionTokens, question) {
+  const hasInsuranceLookupSignal = insuranceRegexMatcher.hasMatchInAnyCategory(
+    question,
+    ["benefits", "chargesAndFees", "claimsAndEligibility", "policyLifecycle"],
+  );
   const tableIntent = hasTableIntent(questionTokens, question);
   const formulaIntent = hasFormulaIntent(questionTokens, question);
   const metadataIntent =
     /\beligible|eligibility|bonus list|list of bonus|bonus|rider|benefit|coverage|sum assured|exclusion|waiting period|claim|surrender value|premium mode\b/i.test(
       question,
-    );
+    ) || hasInsuranceLookupSignal;
   const riderIntent =
     /\benhanced.*rider|rider benefit|rider coverage|benefit.*rider|waiver of premium|TPD|critical illness|critical+ illness|rider\b/i.test(
       question,
-    );
+    ) ||
+    insuranceRegexMatcher.hasMatchByIds(question, [
+      "lifecycle_rider",
+      "lifecycle_waiver",
+      "lifecycle_tpd",
+    ]);
   const criticalIllnessListIntent =
     /\b(40|forty).*(critical illness(?:es)?|critical+ illness(?:es)?|covered critical illnesses?)|critical illness(?:es)?\s+list|covered critical illness(?:es)?|critical illness(?:es)?.*covered.*rider|critical illness(?:es)?.*rider\b|critical+ illness(?:es)?.*rider\b/i.test(
       question,
     );
-  const waitingPeriodIntent = /\bwaiting period|deferment period\b/i.test(question);
-  const sumAssuredIntent = /\bsum assured|basic sum assured\b/i.test(question);
+  const waitingPeriodIntent =
+    /\bwaiting period|deferment period\b/i.test(question) ||
+    insuranceRegexMatcher.hasMatchByIds(question, [
+      "clm_waiting_period",
+      "clm_elimination_period",
+    ]);
+  const sumAssuredIntent =
+    /\bsum assured|basic sum assured\b/i.test(question) ||
+    insuranceRegexMatcher.hasMatchByIds(question, ["bnf_sum_assured"]);
   const premiumPaidYearIntent =
     /\b(total )?premium(s)? paid|paid to-?date\b/i.test(question) &&
     /\byear\b/i.test(question);
@@ -154,24 +233,28 @@ function entryMatchesScope(entry, scopeHint) {
   }
   const source = normalize(entry.sourcePath);
   const product = normalize(entry.productName);
-  const type = normalize(entry.documentType);
+  const type = canonicalDocumentType(entry.documentType);
   if (scopeHint === "product summary") {
     return (
       source.includes("product summary") ||
-      product.includes("product summary")
+      source.includes("product-summary") ||
+      product.includes("product summary") ||
+      type.includes("summary")
     );
   }
   if (scopeHint === "policy illustration") {
     return (
       source.includes("policy illustration") ||
-      product.includes("policy illustration")
+      source.includes("policy-illustration") ||
+      product.includes("policy illustration") ||
+      type.includes("illustration")
     );
   }
   if (scopeHint === "fact find") {
     return source.includes("fact find") || product.includes("fact find");
   }
   if (scopeHint === "product brochure") {
-    return source.includes("brochure") || product.includes("brochure");
+    return source.includes("brochure") || product.includes("brochure") || type.includes("brochure");
   }
   return (
     source.includes(scopeHint) ||
@@ -713,7 +796,7 @@ export function createQuestionService({
       const strictRouting = Boolean(plannerEnabled && routingPlan.strictRouting);
       const preferredDocumentTypes = plannerEnabled
         ? (routingPlan.preferredDocumentTypes ?? [])
-          .map((item) => normalize(item))
+          .map((item) => canonicalDocumentType(item))
           .filter(Boolean)
         : [];
       const preferredChunkKinds = plannerEnabled
@@ -808,7 +891,7 @@ export function createQuestionService({
       const bonusComputationIntent =
         /\b(loyalty|performance|power[- ]?up|initial)\s+bonus\b/i.test(normalizedQuestion) &&
         /\bcalculate|compute|computed|formula|amount|value\b/i.test(normalizedQuestion);
-      const planNameIntent = /\bbasic plan|plan name|name of (the )?plan\b/i.test(
+      const planNameIntent = /\bbasic plan|plan name|name of (the )?plan|plan for\b/i.test(
         normalizedQuestion,
       );
       const skipped = [];
@@ -816,9 +899,18 @@ export function createQuestionService({
         const candidates = [];
 
         for (const entry of filtered) {
-          const normalizedDocType = normalize(entry.documentType ?? "");
+          const normalizedDocType = canonicalDocumentType(entry.documentType ?? "");
+          const entryAffinityBoost = computeEntryAffinityBoost(
+            normalizedQuestion,
+            entry,
+          );
           const preferredDocType = preferredDocumentTypes.length === 0 ||
-            preferredDocumentTypes.some((docType) => normalizedDocType.includes(docType));
+            preferredDocumentTypes.some(
+              (docType) =>
+                normalizedDocType === docType ||
+                normalizedDocType.includes(docType) ||
+                docType.includes(normalizedDocType),
+            );
           if (applyStrictRouting && !preferredDocType) {
             continue;
           }
@@ -838,6 +930,10 @@ export function createQuestionService({
             continue;
           }
 
+          if (!existsSync(contentPath)) {
+            skipped.push({ sourcePath: entry.sourcePath, reason: "source file not found on disk" });
+            continue;
+          }
           const content = readFileSync(contentPath, "utf8");
           const scopeMatched = entryMatchesScope(entry, scopeHint);
           const chunks = [
@@ -882,7 +978,7 @@ export function createQuestionService({
             }
             const effectiveScore = Math.max(
               0,
-              Math.min(1, Number((score + plannerBoost).toFixed(6))),
+              Math.min(1, Number((score + plannerBoost + entryAffinityBoost).toFixed(6))),
             );
             candidates.push({
               score: effectiveScore,

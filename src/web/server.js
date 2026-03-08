@@ -1,4 +1,6 @@
 import express from "express";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 import { loadEnvFile } from "../config/loadEnv.js";
 import { loadLlmConfig } from "../config/llmConfig.js";
 import { createIngestionRuntime } from "../ingestion/bootstrap.js";
@@ -18,6 +20,7 @@ import { createDefaultAskAnswerAgent } from "../agentic/agents/ask/defaultAskAns
 import { createDefaultAnswerCheckerAgent } from "../agentic/agents/checker/defaultAnswerCheckerAgent.js";
 import { createAskBackOrchestrator } from "../agentic/orchestrator/askBackOrchestrator.js";
 import { createSemanticReranker } from "../qa/providers/semanticReranker.js";
+import { buildBusinessMetadata } from "../ingestion/metadata/businessMetadata.js";
 
 // ── Initialise ──────────────────────────────────────────────────────────────
 loadEnvFile();
@@ -88,6 +91,20 @@ app.use((req, res, next) => {
 });
 
 // ============================================================
+// Taxonomy
+// ============================================================
+app.get("/api/taxonomy", (_req, res) => {
+  try {
+    const taxonomy = JSON.parse(
+      readFileSync(resolve(process.cwd(), "config/taxonomy.json"), "utf8"),
+    );
+    res.json(taxonomy);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load taxonomy" });
+  }
+});
+
+// ============================================================
 // Health Check
 // ============================================================
 app.get("/api/health", (_req, res) => {
@@ -119,9 +136,13 @@ app.get("/api/catalog", async (_req, res) => {
         sourcePath: doc.sourcePath,
         productName: doc.productName,
         jurisdiction: doc.jurisdiction,
+        insuranceType: doc.insuranceType ?? doc.metadata?.insuranceType ?? null,
         versionLabel: doc.versionLabel,
         documentType: doc.documentType,
         indexedAt: doc.indexedAt,
+        chunkCount: doc.metadata?.chunkCount ?? null,
+        vectorCount: doc.metadata?.vectorCount ?? null,
+        regexTagSummary: doc.metadata?.regexTagSummary ?? null,
       })),
     });
   } catch (error) {
@@ -156,35 +177,87 @@ app.get("/api/config", (_req, res) => {
 app.post("/api/ingest", async (req, res) => {
   try {
     const { filename, content, metadata, actorId = "api-user" } = req.body;
+    const { insurer, planName, jurisdiction, insuranceType, documentType, versionLabel } = metadata ?? {};
 
-    if (!filename || !content || !metadata) {
+    if (!filename || !content || !insurer || !planName || !jurisdiction || !insuranceType || !documentType) {
       return res.status(400).json({
         success: false,
-        error:
-          "Missing required fields: filename, content, metadata (productName, jurisdiction, versionLabel, documentType)",
+        error: "Missing required fields: filename, content, metadata (insurer, planName, jurisdiction, insuranceType, documentType)",
       });
     }
 
+    // Validate insurer and insuranceType against taxonomy
+    const taxonomy = JSON.parse(readFileSync(resolve(process.cwd(), "config/taxonomy.json"), "utf8"));
+    const validInsurers = taxonomy.insurers.map((i) => i.value);
+    const validTypes = taxonomy.insuranceTypes.map((t) => t.value);
+    if (!validInsurers.includes(insurer)) {
+      return res.status(400).json({ success: false, error: `Invalid insurer: ${insurer}` });
+    }
+    if (!validTypes.includes(insuranceType)) {
+      return res.status(400).json({ success: false, error: `Invalid insuranceType: ${insuranceType}` });
+    }
+
+    // Build structured path: data/sources/{insurer}/{jurisdiction}/{insuranceType}/{documentType}/{filename}
+    const isPdf = filename.toLowerCase().endsWith(".pdf");
+    const safeFilename = filename.replace(/\s+/g, "-").toLowerCase();
+    const structuredPath = `data/sources/${insurer}/${jurisdiction.toLowerCase()}/${insuranceType}/${documentType}/${safeFilename}`;
+    mkdirSync(resolve(process.cwd(), dirname(structuredPath)), { recursive: true });
+    writeFileSync(
+      resolve(process.cwd(), structuredPath),
+      isPdf ? Buffer.from(content, "base64") : content,
+      isPdf ? undefined : "utf8",
+    );
+
     // ingestionService.ingest() is async to support postgres vector stores
     const ingestResult = await runtime.ingestionService.ingest({
-      sourceUri: filename,
+      sourceUri: structuredPath,
       rawContent: content,
-      metadata,
+      metadata: { ...metadata, productName: planName },
       actorId,
-      mimeType: filename.endsWith(".pdf") ? "application/pdf" : "text/plain",
+      mimeType: isPdf ? "application/pdf" : "text/plain",
     });
+
+    // Resolve content text for business metadata extraction:
+    // PDFs → read the persisted extracted text file; text files → use content directly.
+    const extractedTextPath = ingestResult.extractedTextPath ?? null;
+    let contentText = "";
+    if (extractedTextPath) {
+      try { contentText = readFileSync(resolve(process.cwd(), extractedTextPath), "utf8"); } catch { /* leave empty */ }
+    } else if (!isPdf) {
+      contentText = content;
+    }
 
     // catalog.appendEntry() is awaited — works with both file (sync) and postgres (async)
     await catalog.appendEntry({
       id: ingestResult.documentVersionId,
-      sourcePath: filename,
-      productName: metadata.productName,
-      jurisdiction: metadata.jurisdiction,
-      versionLabel: metadata.versionLabel,
-      documentType: metadata.documentType || "unknown",
+      sourcePath: structuredPath,
+      productName: planName,
+      jurisdiction,
+      insuranceType,
+      versionLabel: versionLabel || "v1.0",
+      documentType,
       status: "completed",
       indexedAt: new Date().toISOString(),
       runId: ingestResult.runId,
+      extractedTextPath,
+      metadata: {
+        insurer,
+        insuranceType,
+        planName,
+        chunkCount: ingestResult.chunkCount,
+        vectorCount: ingestResult.vectorCount,
+        regexTagSummary: ingestResult.regexTagSummary ?? null,
+        extractedTextPath,
+        extractionEngine: ingestResult.extractionEngine ?? null,
+        extractionStatus: ingestResult.extractionStatus ?? null,
+      },
+      businessMetadata: buildBusinessMetadata({
+        sourcePath: structuredPath,
+        metadata: { ...metadata, productName: planName },
+        actorId,
+        mimeType: isPdf ? "application/pdf" : "text/plain",
+        contentText,
+      }),
     });
 
     res.json({
@@ -193,6 +266,7 @@ app.post("/api/ingest", async (req, res) => {
       documentVersionId: ingestResult.documentVersionId,
       chunksGenerated: ingestResult.chunkCount,
       vectorsStored: ingestResult.vectorCount,
+      regexTagSummary: ingestResult.regexTagSummary ?? null,
     });
   } catch (error) {
     console.error("Ingestion error:", error);
@@ -208,7 +282,7 @@ app.post("/api/ingest", async (req, res) => {
 // ============================================================
 app.post("/api/ask", async (req, res) => {
   try {
-    const { question, topK = 3 } = req.body;
+    const { question, topK = 3, productFilter } = req.body;
 
     if (!question) {
       return res.status(400).json({
@@ -218,7 +292,11 @@ app.post("/api/ask", async (req, res) => {
     }
 
     // Build question service with fresh catalog entries so newly ingested docs are included
-    const catalogEntries = await catalog.getLatestDocuments();
+    const allEntries = await catalog.getLatestDocuments();
+    const catalogEntries =
+      productFilter && productFilter !== "All Products"
+        ? allEntries.filter((e) => e.productName === productFilter)
+        : allEntries;
     const questionService = createQuestionService({
       catalogEntries,
       conversationProvider,
@@ -258,7 +336,13 @@ app.post("/api/ask", async (req, res) => {
       question,
       answer: finalAnswer,
       confidence: qaResult.confidenceScore || 0,
-      sources: qaResult.citations || [],
+      sources: (qaResult.citations || []).map((c) => ({
+        document: c.sourcePath?.split("/").pop() ?? c.sourcePath ?? "",
+        chunk: c.chunkIndex,
+        score: c.score,
+        productName: c.productName,
+        relevantText: c.relevantText ?? c.text ?? "",
+      })),
       reasoning: {
         detectedIntent: qaResult.queryPlan?.intentClass,
         clarificationNeeded: (runResult.askedQuestions?.length ?? 0) > 0,
@@ -277,6 +361,139 @@ app.post("/api/ask", async (req, res) => {
       error: "Failed to process question. Check server logs for details.",
       question: req.body.question,
     });
+  }
+});
+
+// ============================================================
+// Delete document
+// ============================================================
+app.delete("/api/documents/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (catalogProvider === "postgres") {
+      const pool = getPool();
+      await pool.query("DELETE FROM document_vectors WHERE document_version_id = $1", [id]);
+      const result = await pool.query("DELETE FROM ingestion_catalog WHERE id = $1", [id]);
+      if (result.rowCount === 0) {
+        return res.status(404).json({ success: false, error: "Document not found." });
+      }
+    } else {
+      catalog.removeEntry(id);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ success: false, error: "Failed to delete document." });
+  }
+});
+
+// ============================================================
+// Reindex document
+// ============================================================
+app.post("/api/reindex/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const entries = await catalog.getLatestDocuments();
+    const entry = entries.find((e) => e.id === id);
+    if (!entry) {
+      return res.status(404).json({ success: false, error: "Document not found." });
+    }
+
+    const filePath = resolve(process.cwd(), entry.sourcePath);
+    if (!existsSync(filePath)) {
+      return res.status(422).json({
+        success: false,
+        error: "Source file not on disk — cannot reindex.",
+        debug: { resolvedPath: filePath, sourcePath: entry.sourcePath, cwd: process.cwd() },
+      });
+    }
+
+    const filename = entry.sourcePath?.split("/").pop() ?? entry.sourcePath;
+    const isPdf = filename.toLowerCase().endsWith(".pdf");
+    const fileBuffer = readFileSync(filePath);
+    const content = isPdf ? fileBuffer.toString("base64") : fileBuffer.toString("utf8");
+
+    // Remove old vectors before re-ingesting
+    if (catalogProvider === "postgres") {
+      await getPool().query("DELETE FROM document_vectors WHERE document_version_id = $1", [id]);
+      await getPool().query("DELETE FROM ingestion_catalog WHERE id = $1", [id]);
+    } else {
+      catalog.removeEntry(id);
+    }
+
+    const ingestResult = await runtime.ingestionService.ingest({
+      sourceUri: entry.sourcePath,
+      rawContent: content,
+      metadata: {
+        productName: entry.productName,
+        jurisdiction: entry.jurisdiction,
+        insuranceType: entry.insuranceType ?? entry.metadata?.insuranceType ?? null,
+        versionLabel: entry.versionLabel,
+        documentType: entry.documentType,
+      },
+      actorId: "api-reindex",
+      mimeType: isPdf ? "application/pdf" : "text/plain",
+    });
+
+    const reindexExtractedTextPath = ingestResult.extractedTextPath ?? null;
+    const existingInsuranceType =
+      entry.insuranceType ?? entry.metadata?.insuranceType ?? null;
+    const existingInsurer = entry.insurer ?? entry.metadata?.insurer ?? null;
+    const existingPlanName = entry.planName ?? entry.metadata?.planName ?? entry.productName;
+    let reindexContentText = "";
+    if (reindexExtractedTextPath) {
+      try { reindexContentText = readFileSync(resolve(process.cwd(), reindexExtractedTextPath), "utf8"); } catch { /* leave empty */ }
+    } else if (!isPdf) {
+      reindexContentText = content;
+    }
+
+    await catalog.appendEntry({
+      id: ingestResult.documentVersionId,
+      sourcePath: entry.sourcePath,
+      productName: entry.productName,
+      jurisdiction: entry.jurisdiction,
+      insuranceType: existingInsuranceType,
+      versionLabel: entry.versionLabel,
+      documentType: entry.documentType,
+      status: "completed",
+      indexedAt: new Date().toISOString(),
+      runId: ingestResult.runId,
+      extractedTextPath: reindexExtractedTextPath,
+      metadata: {
+        insurer: existingInsurer,
+        insuranceType: existingInsuranceType,
+        planName: existingPlanName,
+        chunkCount: ingestResult.chunkCount,
+        vectorCount: ingestResult.vectorCount,
+        regexTagSummary: ingestResult.regexTagSummary ?? null,
+        extractedTextPath: reindexExtractedTextPath,
+        extractionEngine: ingestResult.extractionEngine ?? null,
+        extractionStatus: ingestResult.extractionStatus ?? null,
+      },
+      businessMetadata: buildBusinessMetadata({
+        sourcePath: entry.sourcePath,
+        metadata: {
+          productName: entry.productName,
+          jurisdiction: entry.jurisdiction,
+          insuranceType: existingInsuranceType,
+          versionLabel: entry.versionLabel,
+          documentType: entry.documentType,
+        },
+        actorId: "api-reindex",
+        mimeType: isPdf ? "application/pdf" : "text/plain",
+        contentText: reindexContentText,
+      }),
+    });
+
+    res.json({
+      success: true,
+      chunksGenerated: ingestResult.chunkCount,
+      vectorsStored: ingestResult.vectorCount,
+      regexTagSummary: ingestResult.regexTagSummary ?? null,
+    });
+  } catch (error) {
+    console.error("Reindex error:", error);
+    res.status(500).json({ success: false, error: "Reindex failed. Check server logs." });
   }
 });
 
@@ -302,11 +519,13 @@ app.listen(PORT, () => {
   console.log(`  Catalog store:  ${catalogProvider}`);
   console.log(`  Vector store:   ${runtime.runtimeConfig.vectorStore?.provider ?? "file"}`);
   console.log(`  API Endpoints:`);
-  console.log(`    GET  /api/health`);
-  console.log(`    GET  /api/catalog`);
-  console.log(`    GET  /api/config`);
-  console.log(`    POST /api/ingest`);
-  console.log(`    POST /api/ask\n`);
+  console.log(`    GET    /api/health`);
+  console.log(`    GET    /api/catalog`);
+  console.log(`    GET    /api/config`);
+  console.log(`    POST   /api/ingest`);
+  console.log(`    POST   /api/ask`);
+  console.log(`    DELETE /api/documents/:id`);
+  console.log(`    POST   /api/reindex/:id\n`);
 });
 
 export default app;

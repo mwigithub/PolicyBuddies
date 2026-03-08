@@ -36,9 +36,20 @@ export function createPostgresIngestionCatalog({ pool }) {
   `;
 
   function mapRow(row) {
+    const metadata = row.metadata ?? {};
     return {
       ...row,
-      metadata: row.metadata ?? {},
+      metadata,
+      // Lift fields that questionService reads directly (mirrors file catalog shape)
+      extractedTextPath: metadata.extractedTextPath ?? null,
+      extractionEngine: metadata.extractionEngine ?? null,
+      extractionStatus: metadata.extractionStatus ?? null,
+      chunkCount: metadata.chunkCount ?? null,
+      vectorCount: metadata.vectorCount ?? null,
+      insurer: metadata.insurer ?? null,
+      insuranceType: metadata.insuranceType ?? null,
+      planName: metadata.planName ?? null,
+      businessMetadata: metadata.businessMetadata ?? null,
     };
   }
 
@@ -127,7 +138,8 @@ export function createPostgresIngestionCatalog({ pool }) {
          ON CONFLICT (id) DO UPDATE SET
            status      = EXCLUDED.status,
            run_id      = EXCLUDED.run_id,
-           indexed_at  = EXCLUDED.indexed_at`,
+           indexed_at  = EXCLUDED.indexed_at,
+           metadata    = EXCLUDED.metadata`,
         [
           entry.id,
           entry.sourcePath,
@@ -139,7 +151,11 @@ export function createPostgresIngestionCatalog({ pool }) {
           entry.runId ?? null,
           entry.indexedAt ?? now,
           ingestedAt,
-          JSON.stringify(entry.metadata ?? {}),
+          JSON.stringify({
+            ...(entry.metadata ?? {}),
+            // businessMetadata may be passed at top level (server.js) — merge it in
+            businessMetadata: entry.businessMetadata ?? entry.metadata?.businessMetadata ?? null,
+          }),
         ],
       );
     },

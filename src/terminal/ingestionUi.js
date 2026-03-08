@@ -15,6 +15,42 @@ const DOCUMENT_TYPES = [
   "product brochure",
 ];
 
+function loadInsuranceTypeOptions() {
+  const candidatePaths = [
+    resolve(process.cwd(), "config/product-relevance-taxonomy.json"),
+    resolve(process.cwd(), "config/taxonomy.json"),
+  ];
+
+  for (const filePath of candidatePaths) {
+    try {
+      const parsed = JSON.parse(readFileSync(filePath, "utf8"));
+      if (parsed?.productTypes && typeof parsed.productTypes === "object") {
+        const keys = Object.keys(parsed.productTypes).filter(Boolean);
+        if (keys.length > 0) {
+          return keys;
+        }
+      }
+      if (Array.isArray(parsed?.insuranceTypes)) {
+        const values = parsed.insuranceTypes
+          .map((item) => String(item?.value ?? "").trim())
+          .filter(Boolean);
+        if (values.length > 0) {
+          return values;
+        }
+      }
+    } catch {
+      // ignore and continue to next fallback source
+    }
+  }
+
+  return ["investment-linked", "term-life", "whole-life", "endowment"];
+}
+
+function detectInsuranceTypeFromPath(fileName, options) {
+  const normalizedPath = String(fileName ?? "").toLowerCase();
+  return options.find((value) => normalizedPath.includes(String(value).toLowerCase())) ?? null;
+}
+
 function listSourceFiles(sourceDirAbsolute) {
   const files = [];
   const stack = [sourceDirAbsolute];
@@ -124,12 +160,32 @@ function printCrossReference(rows) {
 }
 
 async function askMetadata(rl, fileName) {
+  const insuranceTypeOptions = loadInsuranceTypeOptions();
+  const detectedInsuranceType =
+    detectInsuranceTypeFromPath(fileName, insuranceTypeOptions) ??
+    insuranceTypeOptions[0];
+  const detectedInsuranceTypeIndex =
+    insuranceTypeOptions.indexOf(detectedInsuranceType) + 1;
   const defaultProduct = basename(fileName).replace(/\.[^.]+$/, "");
   const productName = (
     await rl.question(`Product name [${defaultProduct}]: `)
   ).trim() || defaultProduct;
   const versionLabel = (await rl.question("Version label [v1]: ")).trim() || "v1";
   const jurisdiction = (await rl.question("Jurisdiction [SG]: ")).trim() || "SG";
+  console.log("\nInsurance Type:");
+  insuranceTypeOptions.forEach((value, index) => {
+    console.log(`${index + 1}) ${value}`);
+  });
+  const insuranceTypeRaw = (
+    await rl.question(`Select insurance type number [${detectedInsuranceTypeIndex}]: `)
+  ).trim() || String(detectedInsuranceTypeIndex);
+  const insuranceTypeIndex = Number(insuranceTypeRaw);
+  const insuranceType =
+    Number.isNaN(insuranceTypeIndex) ||
+      insuranceTypeIndex < 1 ||
+      insuranceTypeIndex > insuranceTypeOptions.length
+      ? detectedInsuranceType
+      : insuranceTypeOptions[insuranceTypeIndex - 1];
   const actorId = (await rl.question("Actor ID [system]: ")).trim() || "system";
   const mimeType = (
     await rl.question("Mime type [text/markdown]: ")
@@ -146,7 +202,13 @@ async function askMetadata(rl, fileName) {
       : DOCUMENT_TYPES[typeIndex - 1];
 
   return {
-    metadata: { productName, versionLabel, jurisdiction, documentType },
+    metadata: {
+      productName,
+      versionLabel,
+      jurisdiction,
+      insuranceType,
+      documentType,
+    },
     actorId,
     mimeType,
   };
@@ -166,6 +228,7 @@ async function ingestOne({ rl, runtime, catalog, sourceDirAbsolute, sourcePath }
     normalized: "Content normalized",
     version_saved: "Version saved",
     chunked: "Chunks generated",
+    regex_tagged: "Regex metadata tagged",
     vectors_stored: "Vectors persisted",
     run_completed: "Run completed",
     run_failed: "Run failed",
@@ -195,6 +258,13 @@ async function ingestOne({ rl, runtime, catalog, sourceDirAbsolute, sourcePath }
       }
       if (event.stage === "vectors_stored") {
         console.log(`- ${label}: ${event.vectorCount}`);
+        return;
+      }
+      if (event.stage === "regex_tagged") {
+        const categories = Array.isArray(event.categories)
+          ? event.categories.join(", ")
+          : "";
+        console.log(`- ${label}: matchedChunks=${event.matchedChunkCount ?? 0}${categories ? `, categories=[${categories}]` : ""}`);
         return;
       }
       if (event.stage === "version_saved") {
@@ -234,8 +304,19 @@ async function ingestOne({ rl, runtime, catalog, sourceDirAbsolute, sourcePath }
     productName: values.metadata.productName,
     versionLabel: values.metadata.versionLabel,
     jurisdiction: values.metadata.jurisdiction,
+    insuranceType: values.metadata.insuranceType,
     documentType: values.metadata.documentType,
     metadataStandardVersion: metadataRuntimeConfig.metadataStandardVersion,
+    metadata: {
+      insuranceType: values.metadata.insuranceType,
+      extractedTextPath: result.extractedTextPath,
+      extractionStatus: result.extractionStatus,
+      extractionEngine: result.extractionEngine,
+      tableCount: result.tableCount,
+      chunkCount: result.chunkCount,
+      vectorCount: result.vectorCount,
+      regexTagSummary: result.regexTagSummary ?? null,
+    },
     businessMetadata: buildBusinessMetadata({
       sourcePath,
       metadata: values.metadata,
@@ -337,7 +418,7 @@ export async function runIngestionUi() {
       }
       entries.forEach((entry, index) => {
         console.log(
-          `${index + 1}) ${entry.ingestedAt} | run=${entry.runId} | ${entry.sourcePath} | ${entry.status} | ${entry.productName}/${entry.versionLabel}/${entry.jurisdiction} | ${entry.documentType ?? "unknown"} | extract=${entry.extractionStatus ?? "unknown"}(${entry.extractionEngine ?? "n/a"}) tables=${entry.tableCount ?? 0} | chunk=${entry.chunkingMode ?? "n/a"}:${entry.minChunkTokens ?? 0}-${entry.maxChunkTokens ?? 0}`,
+          `${index + 1}) ${entry.ingestedAt} | run=${entry.runId} | ${entry.sourcePath} | ${entry.status} | ${entry.productName}/${entry.versionLabel}/${entry.jurisdiction}/${entry.insuranceType ?? "unknown"} | ${entry.documentType ?? "unknown"} | extract=${entry.extractionStatus ?? "unknown"}(${entry.extractionEngine ?? "n/a"}) tables=${entry.tableCount ?? 0} | chunk=${entry.chunkingMode ?? "n/a"}:${entry.minChunkTokens ?? 0}-${entry.maxChunkTokens ?? 0}`,
         );
       });
       console.log("");

@@ -33,6 +33,8 @@ if (demo.enabled) {
       productName: process.env.DEMO_PRODUCT_NAME || demo.metadata.productName,
       jurisdiction:
         process.env.DEMO_JURISDICTION || demo.metadata.jurisdiction,
+      insuranceType:
+        process.env.DEMO_INSURANCE_TYPE || demo.metadata.insuranceType,
       versionLabel:
         process.env.DEMO_VERSION_LABEL || demo.metadata.versionLabel,
       documentType:
@@ -63,15 +65,30 @@ if (demo.enabled) {
     productName: process.env.DEMO_PRODUCT_NAME || demo.metadata.productName,
     versionLabel: process.env.DEMO_VERSION_LABEL || demo.metadata.versionLabel,
     jurisdiction: process.env.DEMO_JURISDICTION || demo.metadata.jurisdiction,
+    insuranceType:
+      process.env.DEMO_INSURANCE_TYPE || demo.metadata.insuranceType,
     documentType:
       process.env.DEMO_DOCUMENT_TYPE || demo.metadata.documentType,
     metadataStandardVersion: metadataRuntimeConfig.metadataStandardVersion,
+    metadata: {
+      insuranceType:
+        process.env.DEMO_INSURANCE_TYPE || demo.metadata.insuranceType,
+      extractedTextPath: ingestResult.extractedTextPath,
+      extractionStatus: ingestResult.extractionStatus,
+      extractionEngine: ingestResult.extractionEngine,
+      tableCount: ingestResult.tableCount,
+      chunkCount: ingestResult.chunkCount,
+      vectorCount: ingestResult.vectorCount,
+      regexTagSummary: ingestResult.regexTagSummary ?? null,
+    },
     businessMetadata: buildBusinessMetadata({
       sourcePath: relative(process.cwd(), sourcePath),
       metadata: {
         productName: process.env.DEMO_PRODUCT_NAME || demo.metadata.productName,
         versionLabel: process.env.DEMO_VERSION_LABEL || demo.metadata.versionLabel,
         jurisdiction: process.env.DEMO_JURISDICTION || demo.metadata.jurisdiction,
+        insuranceType:
+          process.env.DEMO_INSURANCE_TYPE || demo.metadata.insuranceType,
         documentType:
           process.env.DEMO_DOCUMENT_TYPE || demo.metadata.documentType,
       },
