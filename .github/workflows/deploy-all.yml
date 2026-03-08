@@ -19,6 +19,7 @@ jobs:
         run: |
           [ -n "${{ secrets.SUPABASE_DATABASE_URL }}" ] || (echo "Missing secret: SUPABASE_DATABASE_URL" && exit 1)
           [ -n "${{ secrets.RAILWAY_TOKEN }}" ] || (echo "Missing secret: RAILWAY_TOKEN" && exit 1)
+          [ -n "${{ secrets.GEMINI_API_KEY }}" ] || (echo "Missing secret: GEMINI_API_KEY" && exit 1)
           if [ -z "${{ secrets.RAILWAY_PROJECT_ID }}" ] && [ -z "${{ secrets.RAILWAY_PROJECT_NAME }}" ]; then
             echo "Missing Railway project selector: set RAILWAY_PROJECT_ID or RAILWAY_PROJECT_NAME"
             exit 1
@@ -108,6 +109,9 @@ jobs:
       RAILWAY_PROJECT_NAME: ${{ secrets.RAILWAY_PROJECT_NAME }}
       RAILWAY_SERVICE_NAME: ${{ secrets.RAILWAY_SERVICE_NAME }}
       RAILWAY_ENVIRONMENT_NAME: ${{ secrets.RAILWAY_ENVIRONMENT_NAME }}
+      SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ALLOWED_ORIGIN: ${{ secrets.ALLOWED_ORIGIN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,6 +123,36 @@ jobs:
 
       - name: Install Railway CLI
         run: npm i -g @railway/cli
+
+      - name: Sync Railway environment variables
+        run: |
+          ENV_NAME="${RAILWAY_ENVIRONMENT_NAME:-production}"
+          if [ -n "${RAILWAY_SERVICE_ID}" ]; then
+            SERVICE_SELECTOR="${RAILWAY_SERVICE_ID}"
+          else
+            SERVICE_SELECTOR="${RAILWAY_SERVICE_NAME}"
+          fi
+
+          if [ -z "${ALLOWED_ORIGIN}" ]; then
+            ALLOWED_ORIGIN_VALUE="*"
+          else
+            ALLOWED_ORIGIN_VALUE="${ALLOWED_ORIGIN}"
+          fi
+
+          if [ -n "${RAILWAY_PROJECT_ID}" ]; then
+            railway link -p "${RAILWAY_PROJECT_ID}" -s "${SERVICE_SELECTOR}" -e "${ENV_NAME}"
+          else
+            railway link -p "${RAILWAY_PROJECT_NAME}" -s "${SERVICE_SELECTOR}" -e "${ENV_NAME}"
+          fi
+
+          railway variable set -s "${SERVICE_SELECTOR}" -e "${ENV_NAME}" \
+            NODE_ENV=production \
+            DATABASE_URL="${SUPABASE_DATABASE_URL}" \
+            DATABASE_SSL=true \
+            DATABASE_POOL_MAX=5 \
+            ALLOWED_ORIGIN="${ALLOWED_ORIGIN_VALUE}" \
+            GEMINI_API_KEY="${GEMINI_API_KEY}" \
+            --skip-deploys
 
       - name: Deploy to Railway via CLI
         run: |
