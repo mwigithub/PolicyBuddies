@@ -74,6 +74,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── Deploy ────────────────────────────────────────────────────
+  # Railway deploys automatically via its GitHub integration when this CD job succeeds.
+  # In Railway dashboard → service Settings → "Wait for CI" must be ON so Railway only
+  # deploys after all GitHub Actions complete successfully.
+  #
+  # For future AWS migration, add ECS deploy steps here.
+  # See DEPLOY.md → "Migrating to AWS" for details.
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -81,29 +87,14 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ── Option A: Railway ─────────────────────────────────────
-      # Requires: RAILWAY_TOKEN secret — must be a SERVICE token (not project/account token)
-      # A service token is already scoped to one service, so no --service flag is needed.
-      # To generate: Railway dashboard → your service → Settings → Service Tokens → New Token
-      - name: Deploy to Railway
+      # ── Railway ───────────────────────────────────────────────
+      # No explicit deploy step needed. Railway watches the main branch and
+      # deploys automatically once this workflow (and CI) completes successfully.
+      # (Railway service Settings → "Wait for CI" = ON enforces this gate.)
+      - name: Confirm deployment triggered
         run: |
-          npm install -g @railway/cli@latest
-          railway up --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      # ── Option B: Render ──────────────────────────────────────
-      # Requires: RENDER_SERVICE_ID + RENDER_API_KEY secrets
-      # - name: Deploy to Render
-      #   run: |
-      #     curl -X POST \
-      #       "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
-      #       -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-      #       -H "Content-Type: application/json" \
-      #       -d '{"clearCache": false}'
+          echo "Image ${{ needs.build-and-push.outputs.image-tag }} pushed to GHCR."
+          echo "Railway will deploy automatically after all checks pass."
 
       # ── Option C: AWS ECS (FUTURE — not active, do not uncomment yet) ───
       # Only activate this when AWS infrastructure (ECS + RDS) is fully set up.
@@ -123,6 +114,3 @@ jobs:
       #       --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
       #       --service ${{ secrets.ECS_SERVICE_NAME }} \
       #       --force-new-deployment
-
-      - name: Log deployed image
-        run: echo "Deployed image ${{ needs.build-and-push.outputs.image-tag }} to Railway."
