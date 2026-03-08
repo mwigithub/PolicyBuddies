@@ -326,6 +326,30 @@ app.post("/api/ask", async (req, res) => {
       productFilter && productFilter !== "All Products"
         ? allEntries.filter((e) => e.productName === productFilter)
         : allEntries;
+
+    // Short-circuit: metadata questions (plan name, insurer, type) can be answered
+    // directly from the catalog without searching document chunks.
+    const metadataPattern = /\b(plan\s*name|product\s*name|policy\s*name|insurer|insurance\s*company|policy\s*type|insurance\s*type|document\s*type)\b/i;
+    if (productFilter && metadataPattern.test(question) && catalogEntries.length > 0) {
+      const entry = catalogEntries[0];
+      const planName = entry.productName ?? entry.planName ?? productFilter;
+      const insurer = entry.insurer ?? "";
+      const insuranceType = entry.insuranceType ?? "";
+      let metaAnswer = `The plan name is "${planName}"`;
+      if (insurer) metaAnswer += `, offered by ${insurer}`;
+      if (insuranceType) metaAnswer += ` (${insuranceType})`;
+      metaAnswer += ".";
+      return res.json({
+        success: true,
+        question,
+        answer: metaAnswer,
+        confidence: 1,
+        sources: [],
+        reasoning: { detectedIntent: "metadata_lookup" },
+        orchestration: { status: "METADATA_SHORTCUT", finalizedAt: new Date().toISOString() },
+      });
+    }
+
     const questionService = createQuestionService({
       catalogEntries,
       conversationProvider,
