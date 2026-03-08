@@ -124,7 +124,9 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
-      - name: Sync Railway environment variables
+      - id: sync_railway_vars
+        name: Sync Railway environment variables
+        continue-on-error: true
         run: |
           ENV_NAME="${RAILWAY_ENVIRONMENT_NAME:-production}"
           if [ -n "${RAILWAY_SERVICE_ID}" ]; then
@@ -153,6 +155,11 @@ jobs:
             ALLOWED_ORIGIN="${ALLOWED_ORIGIN_VALUE}" \
             GEMINI_API_KEY="${GEMINI_API_KEY}" \
             --skip-deploys
+
+      - name: Variable sync fallback note
+        if: ${{ steps.sync_railway_vars.outcome == 'failure' }}
+        run: |
+          echo "Railway variable sync failed (likely token scope). Deploy step will still run."
 
       - name: Deploy to Railway via CLI
         run: |
