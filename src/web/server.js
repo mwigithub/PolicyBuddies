@@ -95,7 +95,7 @@ app.use((req, res, next) => {
   }
 });
 
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
@@ -103,12 +103,35 @@ app.use((req, res, next) => {
 // ============================================================
 // Taxonomy
 // ============================================================
-app.get("/api/taxonomy", (_req, res) => {
+app.get("/api/taxonomy", async (_req, res) => {
   try {
-    const taxonomy = JSON.parse(
+    const base = JSON.parse(
       readFileSync(resolve(process.cwd(), "config/taxonomy.json"), "utf8"),
     );
-    res.json(taxonomy);
+
+    // Enrich with values actually present in the catalog so the upload form
+    // reflects what's already been indexed (new entries appear automatically).
+    const entries = await catalog.getLatestDocuments();
+
+    if (entries.length > 0) {
+      const baseInsurerValues = new Set(base.insurers.map((i) => i.value));
+      const baseTypeValues = new Set(base.insuranceTypes.map((t) => t.value));
+
+      for (const e of entries) {
+        const insurer = e.insurer ?? e.metadata?.insurer;
+        if (insurer && !baseInsurerValues.has(insurer)) {
+          base.insurers.push({ label: insurer, value: insurer });
+          baseInsurerValues.add(insurer);
+        }
+        const type = e.insuranceType ?? e.metadata?.insuranceType;
+        if (type && !baseTypeValues.has(type)) {
+          base.insuranceTypes.push({ label: type, value: type });
+          baseTypeValues.add(type);
+        }
+      }
+    }
+
+    res.json(base);
   } catch (err) {
     res.status(500).json({ error: "Failed to load taxonomy" });
   }
