@@ -85,12 +85,12 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Option A: Railway ─────────────────────────────────────
-      # Requires: RAILWAY_TOKEN secret (service token) + railway.json in repo root
-      # RAILWAY_TOKEN must be a service token so the CLI knows which project/service to target.
+      # Requires: RAILWAY_TOKEN + RAILWAY_SERVICE_ID secrets
+      # To get RAILWAY_SERVICE_ID: Railway dashboard → your service → Settings → Service ID
       - name: Deploy to Railway
         run: |
           npm install -g @railway/cli@latest
-          railway up --detach
+          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
