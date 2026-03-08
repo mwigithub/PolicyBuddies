@@ -433,6 +433,8 @@ Answer clearly and concisely. If the information is not found in the excerpts, s
         }
       } catch (err) {
         console.warn("[ask] Vector search fast path failed, falling back to orchestrator:", err.message);
+        // Temporarily surface error for debugging
+        return res.status(500).json({ success: false, error: `Vector search error: ${err.message}` });
       }
     }
 
