@@ -140,7 +140,7 @@ jobs:
             ENV_FLAG="--environment production"
           fi
 
-          railway up ${PROJECT_FLAG} ${SERVICE_FLAG} ${ENV_FLAG} --ci
+          railway up ${PROJECT_FLAG} ${SERVICE_FLAG} ${ENV_FLAG} --detach --ci
 
   smoke-test:
     name: Post-Deploy Smoke Test
