@@ -145,6 +145,16 @@ psql $DATABASE_URL -f db/schema.sql
 
 Or paste `db/schema.sql` into the Supabase SQL Editor.
 
+### Step 4 — Use built-in bootstrap and healthcheck scripts (recommended)
+
+```bash
+# Applies db/schema.sql using DATABASE_URL from env or .env
+npm run db:bootstrap
+
+# Verifies pgvector extension + required tables
+npm run db:healthcheck
+```
+
 ---
 
 ## PoC → AWS RDS Migration

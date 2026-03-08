@@ -12,6 +12,8 @@
     "tui:llm-config": "node src/terminal/llmConfigUi.js",
     "tui:ingestion": "node src/terminal/ingestionUi.js",
     "tui:ask": "node src/terminal/askUi.js",
+    "db:bootstrap": "node scripts/db-bootstrap.mjs",
+    "db:healthcheck": "node scripts/db-healthcheck.mjs",
     "vectors:prune": "node scripts/prune_orphan_vectors.mjs",
     "eval:ask": "node scripts/eval_ask_harness.mjs",
     "ui": "cd ui && npm run dev -- --port 3001",
