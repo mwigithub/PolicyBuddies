@@ -9,17 +9,17 @@
   },
   "conversationLlm": {
     "provider": "gemini-conversation-provider",
-    "model": "gemini-2.0-flash",
+    "model": "gemini-2.5-flash",
     "apiKeyEnv": "GEMINI_API_KEY"
   },
   "intentRouting": {
     "provider": "gemini-intent-router-provider",
-    "model": "gemini-2.0-flash",
+    "model": "gemini-2.5-flash",
     "apiKeyEnv": "GEMINI_API_KEY"
   },
   "queryPlannerLlm": {
     "provider": "gemini-query-planner-provider",
-    "model": "gemini-2.0-flash",
+    "model": "gemini-2.5-flash",
     "apiKeyEnv": "GEMINI_API_KEY"
   },
   "checkerLlm": {
@@ -27,7 +27,7 @@
   },
   "confidenceReview": {
     "provider": "gemini-review-provider",
-    "model": "gemini-2.0-flash",
+    "model": "gemini-2.5-flash",
     "apiKeyEnv": "GEMINI_API_KEY",
     "independentFromIntent": true,
     "debug": true,
