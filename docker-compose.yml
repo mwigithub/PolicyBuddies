@@ -4,13 +4,20 @@
 # Services:
 #   postgres  — PostgreSQL 16 + pgvector (persistent volume)
 #   api       — PolicyBuddies Express API (built from Dockerfile)
+#   ui        — PolicyBuddies Next.js UI (built from ui/Dockerfile)
 #
 # Usage:
-#   docker compose up -d              # start both services
+#   docker compose up -d              # start all services
 #   docker compose up -d postgres     # start DB only (for local npm dev)
+#   docker compose up -d postgres api # start DB + API without UI
 #   docker compose logs -f api        # tail API logs
+#   docker compose logs -f ui         # tail UI logs
 #   docker compose down               # stop all
 #   docker compose down -v            # stop all + delete volumes (full reset)
+#
+# URLs (local):
+#   UI:  http://localhost:3001
+#   API: http://localhost:3000
 #
 # Environment:
 #   Copy .env.example → .env and fill in GEMINI_API_KEY.
@@ -76,6 +83,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # ── PolicyBuddies UI ──────────────────────────────────────────
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        # Baked into the Next.js build at build time — must be reachable
+        # from the user's browser, not from inside Docker.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+    container_name: policybuddies-ui
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   postgres_data:

@@ -3,8 +3,8 @@
 # Common development commands
 # ================================================================
 
-.PHONY: help dev db db-stop db-reset build up down logs ps health \
-        ingest ask shell-db ui
+.PHONY: help dev db db-stop db-reset build build-ui up down logs logs-ui ps health \
+        shell-db ui
 
 # Default target
 help:
@@ -60,15 +60,20 @@ db-reset:
 build:
 	docker compose build api
 
-# Start everything (postgres + api) in Docker
+# Build the UI Docker image
+build-ui:
+	docker compose build ui
+
+# Start everything (postgres + api + ui) in Docker
 up:
 	docker compose up -d
 	@echo ""
 	@echo "Services started:"
+	@echo "  UI:       http://localhost:3001"
 	@echo "  API:      http://localhost:3000"
 	@echo "  Postgres: localhost:5432"
 	@echo ""
-	@echo "Run 'make logs' to tail logs, 'make health' to verify."
+	@echo "Run 'make logs' or 'make logs-ui' to tail logs."
 
 # Stop all containers
 down:
@@ -77,6 +82,10 @@ down:
 # Tail api container logs
 logs:
 	docker compose logs -f api
+
+# Tail ui container logs
+logs-ui:
+	docker compose logs -f ui
 
 # Show container status
 ps:
@@ -96,6 +105,6 @@ shell-db:
 
 # ── Frontend ───────────────────────────────────────────────────
 
-# Start Next.js UI (requires API running on port 3000)
+# Start Next.js UI dev server (requires API running on port 3000 or 4000)
 ui:
 	cd ui && npm run dev -- --port 3001
