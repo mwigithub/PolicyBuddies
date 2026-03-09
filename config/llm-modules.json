@@ -35,7 +35,8 @@
   },
   "embedding": {
     "provider": "gemini-embedding-provider",
-    "model": "text-embedding-004"
+    "model": "gemini-embedding-001",
+    "outputDimensionality": 768
   },
   "semanticEmbedding": {
     "model": "all-MiniLM-L6-v2",

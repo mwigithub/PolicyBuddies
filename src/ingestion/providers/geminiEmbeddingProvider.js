@@ -11,22 +11,25 @@ const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export function createGeminiEmbeddingProvider(config = {}) {
   const apiKey = config.apiKey ?? process.env.GEMINI_API_KEY;
-  const model = config.model ?? "text-embedding-004";
+  const model = config.model ?? "gemini-embedding-001";
+  const outputDimensionality = config.outputDimensionality ?? null;
 
   if (!apiKey) {
     throw new Error("[geminiEmbeddingProvider] GEMINI_API_KEY is required");
   }
 
   async function embedText(text) {
+    const body = {
+      model: `models/${model}`,
+      content: { parts: [{ text }] },
+    };
+    if (outputDimensionality) body.outputDimensionality = outputDimensionality;
     const res = await fetch(
       `${BASE_URL}/models/${model}:embedContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: `models/${model}`,
-          content: { parts: [{ text }] },
-        }),
+        body: JSON.stringify(body),
       },
     );
     if (!res.ok) {

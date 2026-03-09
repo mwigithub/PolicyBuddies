@@ -82,7 +82,7 @@ const semanticReranker = createSemanticReranker(llmConfig.semanticEmbedding ?? {
 const geminiEmbedder = hasDatabaseUrl
   ? (() => {
       try {
-        return createGeminiEmbeddingProvider({});
+        return createGeminiEmbeddingProvider(llmConfig.embedding ?? {});
       } catch {
         console.warn("[server] Gemini embedding unavailable — vector search disabled.");
         return null;
@@ -433,8 +433,6 @@ Answer clearly and concisely. If the information is not found in the excerpts, s
         }
       } catch (err) {
         console.warn("[ask] Vector search fast path failed, falling back to orchestrator:", err.message);
-        // Temporarily surface error for debugging
-        return res.status(500).json({ success: false, error: `Vector search error: ${err.message}` });
       }
     }
 
@@ -505,6 +503,9 @@ Answer clearly and concisely. If the information is not found in the excerpts, s
   }
 });
 
+// ============================================================
+// Debug — vector DB diagnostics (dev only, remove before prod)
+// ============================================================
 // ============================================================
 // Delete document
 // ============================================================
